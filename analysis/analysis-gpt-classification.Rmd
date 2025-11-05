@@ -1,0 +1,403 @@
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo = F}
+setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
+library(pacman)
+p_load(readr, tidyverse, lmerTest, glmmTMB, brms, rstanarm, emmeans, jpeg, simr, 
+       vtree, sjPlot, insight, lsa, jsonlite, ggsignif, install = T)
+
+my_summ_lm <- function(x, ...) {
+    jtools::summ(x, scale=T, transform.response=T, model.info = F , confint = T, digits = 3, ...)
+}
+
+options(scipen = 999)
+
+```
+
+# Import data 
+```{r}
+emoreg_dat <- readRDS("../Data/emoreg_dat.rds")
+```
+
+
+# GPT labeling
+## Create the training sample (for each image)
+- I looked at the first 10 responses for each picture and picked some as examples for GPT
+- I will look at agreement at the first 200
+- Then, I will further test the agreement on the first 201-300
+```{r}
+gpt_agreement_byimg <- emoreg_dat %>%
+  arrange(sub_id) %>%
+  group_by(img) %>%
+  slice_head(n = 10) %>%
+  ungroup() %>%
+  dplyr::select(sub_id, trial, group_cond, txt, img)
+  
+write_csv(gpt_agreement_byimg, "GPT classification/agreement_byimg.csv")
+
+gpt_agreement_byimg201_300 <- emoreg_dat %>%
+  arrange(sub_id) %>%
+  group_by(img) %>%
+  slice(11:15) %>%
+  ungroup() %>%
+  dplyr::select(sub_id, trial, group_cond, txt, img)
+
+write_csv(gpt_agreement_byimg201_300, "GPT classification/agreement_byimg201_300.csv")
+
+
+```
+
+#------- Agreement Testing -------#
+## agreement in the first 200 (by image coding)
+```{r}
+path <- "GPT classification/agreement_byimg_human_gpt.xlsx"  # adjust path if needed
+df <- readxl::read_excel(path) 
+
+# Expecting columns: sub_id, trial, txt, human_label, gpt_label
+# human_label is coded 0/1 (0 = Non-reappraisal, 1 = Reappraisal) per your note.
+
+# ---- Normalize/clean labels ----
+# Convert gpt_label to numeric 0/1 even if it is text like "Reappraisal" / "Non-reappraisal"
+df_clean <- df %>%
+  mutate(
+    human = as.integer(human_label),
+
+    # First attempt numeric coercion (e.g., if it's already 0/1)
+    gpt_num = suppressWarnings(as.integer(gpt_label)),
+
+    # If NA, map from strings
+    gpt_num = ifelse(
+      is.na(gpt_num),
+      case_when(
+        str_to_lower(str_trim(gpt_label)) %in% c("reappraisal","1","yes","true") ~ 1L,
+        str_to_lower(str_trim(gpt_label)) %in% c("non-reappraisal","nonreappraisal","0","no","false") ~ 0L,
+        TRUE ~ NA_integer_
+      ),
+      gpt_num
+    )
+  ) %>%
+  # Keep only rows with both ratings present
+  filter(!is.na(human) & !is.na(gpt_num)) %>%
+  mutate(
+    human_f = factor(human, levels = c(0,1), labels = c("Non-reappraisal","Reappraisal")),
+    gpt_f   = factor(gpt_num, levels = c(0,1), labels = c("Non-reappraisal","Reappraisal"))
+  )
+
+cat("\n=== Confusion matrix (human rows x GPT columns) ===\n")
+print(table(df_clean$human_f, df_clean$gpt_f))
+
+f1 <- yardstick::f_meas(df_clean, truth = human_f, estimate = gpt_f, event_level = "second")
+print(f1)
+
+n <- nrow(df_clean)
+agree_n <- sum(df_clean$human_f == df_clean$gpt_f)
+accuracy <- agree_n / n
+cat(sprintf("\nPercent agreement (accuracy): %.2f%%  (n=%d)\n", 100*accuracy, n))
+
+kap_ys <- yardstick::kap(df_clean, truth = human_f, estimate = gpt_f)
+cat(sprintf("\nCohen's kappa (yardstick): %.3f\n", kap_ys$.estimate))
+
+kap_irr <- irr::kappa2(df_clean[,c("human_f","gpt_f")], weight = "unweighted")
+cat("Cohen's kappa (irr::kappa2):\n")
+print(kap_irr)
+```
+
+
+
+## agreement in the 201-300 (by image coding)
+- OK great we have a f1 score = 0.79 and kappa = 0.73
+```{r}
+path2 <- "GPT classification/agreement_byimg_human_gpt201_300.xlsx"  # adjust path if needed
+df2 <- readxl::read_excel(path2) 
+
+# Expecting columns: sub_id, trial, txt, human_label, gpt_label
+# human_label is coded 0/1 (0 = Non-reappraisal, 1 = Reappraisal) per your note.
+
+# ---- Normalize/clean labels ----
+# Convert gpt_label to numeric 0/1 even if it is text like "Reappraisal" / "Non-reappraisal"
+df2_clean <- df2 %>%
+  mutate(
+    human = as.integer(human_label),
+
+    # First attempt numeric coercion (e.g., if it's already 0/1)
+    gpt_num = suppressWarnings(as.integer(gpt_label)),
+
+    # If NA, map from strings
+    gpt_num = ifelse(
+      is.na(gpt_num),
+      case_when(
+        str_to_lower(str_trim(gpt_label)) %in% c("reappraisal","1","yes","true") ~ 1L,
+        str_to_lower(str_trim(gpt_label)) %in% c("non-reappraisal","nonreappraisal","0","no","false") ~ 0L,
+        TRUE ~ NA_integer_
+      ),
+      gpt_num
+    )
+  ) %>%
+  # Keep only rows with both ratings present
+  filter(!is.na(human) & !is.na(gpt_num)) %>%
+  mutate(
+    human_f = factor(human, levels = c(0,1), labels = c("Non-reappraisal","Reappraisal")),
+    gpt_f   = factor(gpt_num, levels = c(0,1), labels = c("Non-reappraisal","Reappraisal"))
+  )
+
+cat("\n=== Confusion matrix (human rows x GPT columns) ===\n")
+print(table(df2_clean$human_f, df2_clean$gpt_f))
+
+f1 <- yardstick::f_meas(df2_clean, truth = human_f, estimate = gpt_f, event_level = "second")
+print(f1)
+
+n <- nrow(df2_clean)
+agree_n <- sum(df2_clean$human_f == df2_clean$gpt_f)
+accuracy <- agree_n / n
+cat(sprintf("\nPercent agreement (accuracy): %.2f%%  (n=%d)\n", 100*accuracy, n))
+
+kap_ys <- yardstick::kap(df2_clean, truth = human_f, estimate = gpt_f)
+cat(sprintf("\nCohen's kappa (yardstick): %.3f\n", kap_ys$.estimate))
+
+```
+
+### Agreement of the all 300 rows
+```{r}
+df12 <- bind_rows(df_clean, df2_clean)
+
+
+cat("\n=== Confusion matrix (human rows x GPT columns) ===\n")
+print(table(df12$human_f, df12$gpt_f))
+
+f1 <- yardstick::f_meas(df12, truth = human_f, estimate = gpt_f, event_level = "second")
+print(f1)
+
+n <- nrow(df12)
+agree_n <- sum(df12$human_f == df12$gpt_f)
+accuracy <- agree_n / n
+cat(sprintf("\nPercent agreement (accuracy): %.2f%%  (n=%d)\n", 100*accuracy, n))
+
+kap_ys <- yardstick::kap(df12, truth = human_f, estimate = gpt_f)
+cat(sprintf("\nCohen's kappa (yardstick): %.3f\n", kap_ys$.estimate))
+
+```
+
+
+## Now we can put everything to GPT to label
+```{r}
+gpt_byimg_all <- emoreg_dat %>%
+  arrange(sub_id) %>%
+  dplyr::select(sub_id, trial, txt, img)
+
+write_csv(gpt_byimg_all, "GPT classification/gpt_byimg_all.csv")
+```
+
+
+#--------- GPT Label Output Analyses ----------#
+
+### merge the gpt output with the main dataset
+```{r}
+gpt_label <- read_csv("GPT classification/label_gpt_byimg_all.csv")
+
+emoreg_dat <- gpt_label %>%
+  dplyr::select(sub_id, trial, gpt_label) %>%
+  right_join(emoreg_dat, by = c("sub_id", "trial"))
+
+
+```
+
+# Analyze the gpt reappraisal labeling data
+```{r fig.width=10, fig.height=4, dpi=300}
+# descriptive of classification results
+table(emoreg_dat$gpt_label)
+
+# treatment subgroups
+emoreg_dat <- emoreg_dat %>%
+  mutate(gpt_label_bi = case_when(
+    gpt_label == "Reappraisal" ~ 1,
+    .default = 0
+  ))
+
+cond_colors <- c(
+  "reappraisal" = "blue",
+  "reappraisal & motivation" = "purple",
+  "motivation" = "red",
+  "control" = "black"
+)
+
+p_treatment <- emoreg_dat %>%
+  filter(subgrp == "treatment" | (subgrp == "control" & group_cond == "control")) %>%
+  group_by(group_cond, trial) %>%
+  summarise(reapp_prop = mean(gpt_label_bi), .groups = "drop") %>%
+  ggplot(aes(x = trial, y = reapp_prop, color = group_cond)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = TRUE) +
+  scale_color_manual(values = cond_colors) + 
+  labs(
+    y = "Proportion of Reappraisal Responses",
+    color = "Condition",
+    title = "Treated Subgroup"
+  ) +
+  theme_classic()+
+  theme(legend.position = "none")+
+  scale_y_continuous(limits = c(0, 0.8))
+
+p_control <- emoreg_dat %>%
+  filter(subgrp == "control") %>%
+  group_by(group_cond, trial) %>%
+  summarise(reapp_prop = mean(gpt_label_bi), .groups = "drop") %>%
+  ggplot(aes(x = trial, y = reapp_prop, color = group_cond)) +
+  geom_point() +
+  geom_smooth(method = "lm",se = TRUE) +
+  scale_color_manual(values = cond_colors) +  
+  labs(
+    y = "Proportion of Reappraisal Responses",
+    color = "Condition",
+    title = "Non-treated Subgroup"
+  ) +
+  theme_classic() +
+  scale_y_continuous(limits = c(0, 0.37))
+
+
+# Combine side by side with shared legend
+library(patchwork)
+p_all <- (p_treatment | p_control) + plot_layout(guides = "collect")
+
+ggsave("../Figures/gpt-classification.png", plot = p_all, dpi = 300, width = 10, height = 4, units = "in")
+
+```
+
+# Curvilinear effect plot
+```{r}
+
+emoreg_dat %>%
+  filter(subgrp == "treatment") %>%
+  group_by(group_cond, trial) %>%
+  summarise(reapp_prop = mean(gpt_label_bi), .groups = "drop") %>%
+  ggplot(aes(x = trial, y = reapp_prop, color = group_cond)) +
+  geom_point() +
+  geom_smooth(method = lm, formula = y ~ splines::bs(x, 3), se = TRUE) +
+  scale_color_manual(values = cond_colors) + 
+  labs(
+    y = "Proportion of Reappraisal Responses",
+    color = "Condition",
+    title = "Treatment Group"
+  ) +
+  theme_classic()+
+  theme(legend.position = "none")
+
+emoreg_dat %>%
+  filter(subgrp == "control") %>%
+  group_by(group_cond, trial) %>%
+  summarise(reapp_prop = mean(gpt_label_bi), .groups = "drop") %>%
+  ggplot(aes(x = trial, y = reapp_prop, color = group_cond)) +
+  geom_point() +
+  geom_smooth(method = lm, formula = y ~ splines::bs(x, 3), se = TRUE) +
+  scale_color_manual(values = cond_colors) +  
+  labs(
+    y = "Proportion of Reappraisal Responses",
+    color = "Condition",
+    title = "Control Group"
+  ) +
+  theme_classic()
+
+```
+
+## Text-level analysis based on GPT labels
+### Treatment subgroup
+```{r}
+m1_treat <- glmer(gpt_label_bi ~ group_cond + trial +
+              (1 | sub_id) + (1 | img),
+            data = emoreg_dat %>% filter(subgrp == "treatment"), 
+            family = binomial)
+
+summary(m1_treat)
+
+
+m2_treat <- glmer(gpt_label_bi ~ grp_method*grp_goal + trial +
+              (1 | sub_id) + (1 | img),
+            data = emoreg_dat %>% filter(subgrp == "treatment" | (subgrp == "control" & group_cond == "control")), 
+            family = binomial)
+
+summary(m2_treat)
+my_summ_lm(m2_treat)
+
+
+# main effect of method -- recode motivation
+emoreg_dat$grp_goal2 <- NA
+emoreg_dat$grp_goal2[emoreg_dat$grp_goal == "motivated"] <- 0.5
+emoreg_dat$grp_goal2[emoreg_dat$grp_goal == "non_motivated"] <- -0.5
+
+
+# main effect of motivation -- recode method
+emoreg_dat$grp_method2 <- NA
+emoreg_dat$grp_method2[emoreg_dat$grp_method == "reappraisal"] <- 0.5
+emoreg_dat$grp_method2[emoreg_dat$grp_method == "observing"] <- -0.5
+
+m2_treat_main <- glmer(gpt_label_bi ~ grp_method2*grp_goal2 + trial +
+              (1 | sub_id) + (1 | img),
+            data = emoreg_dat %>% filter(subgrp == "treatment" | (subgrp == "control" & group_cond == "control")), 
+            family = binomial, control = glmerControl(optimizer = "bobyqa"))
+
+summary(m2_treat_main)
+confint(m2_treat_main)
+
+# Increase in motivation only condition's reappraisal propensity
+lm_motivation_only <- glmer(gpt_label_bi ~  trial +
+              (1 | sub_id) + (1 | img),
+            data = emoreg_dat %>% filter(subgrp == "treatment" & group_cond == "motivation"), 
+            family = binomial, control = glmerControl(optimizer = "bobyqa"))
+my_summ_lm(lm_motivation_only)
+
+```
+
+
+
+### Control subgroup using GPT Labels
+```{r}
+m1 <- glmer(gpt_label_bi ~ group_cond + trial +
+              (1 | sub_id) + (1 | img),
+            data = emoreg_dat %>% filter(subgrp == "control"), 
+            family = binomial)
+
+summary(m1)
+
+m2_control <- glmer(gpt_label_bi ~ grp_goal*grp_method + trial +
+              (1 | sub_id) + (1 | img),
+            data = emoreg_dat %>% filter(subgrp == "control"), 
+            family = binomial)
+
+my_summ_lm(m2_control)
+
+m2_control_main <- glmer(gpt_label_bi ~ grp_method2*grp_goal2 + trial +
+              (1 | sub_id) + (1 | img),
+            data = emoreg_dat %>% filter(subgrp == "control"), 
+            family = binomial, control = glmerControl(optimizer = "bobyqa"))
+
+summary(m2_control_main)
+confint(m2_control_main)
+
+
+# only looking at the first trial
+summary(glmer(gpt_label_bi ~ group_cond  +
+              (1 | sub_id) + (1 | img),
+            data = emoreg_dat %>% filter(subgrp == "control" & trial == 1), 
+            family = binomial)) # no sig difference
+
+
+# only looking at the second / third trial
+summary(glmer(gpt_label_bi ~ group_cond  +
+              (1 | sub_id) + (1 | img),
+            data = emoreg_dat %>% filter(subgrp == "control" & trial == 2), 
+            family = binomial)) 
+
+summary(glmer(gpt_label_bi ~ group_cond  +
+              (1 | sub_id) + (1 | img),
+            data = emoreg_dat %>% filter(subgrp == "control" & trial == 3), 
+            family = binomial)) 
+
+summary(glmer(gpt_label_bi ~ group_cond  +
+              (1 | sub_id) + (1 | img),
+            data = emoreg_dat %>% filter(subgrp == "control" & trial %in% c(2,3)), 
+            family = binomial)) 
+
+```

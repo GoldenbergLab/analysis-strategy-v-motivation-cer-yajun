@@ -1,0 +1,2503 @@
+---
+title: "Main Analysis"
+author: "Yajun"
+date: "2022-12-06"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo = F}
+setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
+library(pacman)
+p_load(readr, tidyverse, lmerTest, glmmTMB, brms, rstanarm, emmeans, jpeg, simr, 
+       vtree, sjPlot, insight, lsa, jsonlite, ggsignif, install = T)
+
+my_summ_lm <- function(x, ...) {
+    jtools::summ(x, scale=T, transform.response=T, model.info = F , confint = T, digits = 3, ...)
+}
+
+options(scipen = 999)
+
+```
+
+# Import data 
+
+```{r}
+emoreg_dat <- read_csv("../Data/emoReg_clean_no_dup.csv")
+solo_dat <- read_csv("../Data/emoReg_clean_solo.csv")
+
+
+
+#emoreg_dat <- read_csv("../../Data/emoReg_unclean.csv")
+
+#str(emoreg_dat)
+#head(emoreg_dat)
+#dim(emoreg_dat)
+
+# Change variable types
+emoreg_dat <- emoreg_dat %>%
+  mutate_at(vars(sub_id, group_cond, grp_method, grp_goal, subgrp, groupID, img), factor) %>%
+  mutate(rate = as.numeric(rate),
+         trial = as.numeric(trial))
+
+# Relevel
+emoreg_dat$grp_goal <- relevel(emoreg_dat$grp_goal, ref = "non_motivated")
+levels(emoreg_dat$group_cond) <- c("control", "reappraisal", "reappraisal & motivation", "motivation")
+
+# Calculate number of members in each group as a control variable
+group_num <- emoreg_dat %>%
+  group_by(groupID) %>%
+  summarize(size = n_distinct(sub_id))
+
+group_num %>% arrange(desc(size))
+
+# Rule out NA subject IDs
+emoreg_dat <- emoreg_dat %>% filter(groupID != "NA-NA")
+
+emoreg_dat <- left_join(emoreg_dat, group_num, by = "groupID")
+table(emoreg_dat$size)
+summary(emoreg_dat$size)
+
+
+# Calculate number of treatment members in each group
+treat_num <- emoreg_dat %>%
+  filter(subgrp == "treatment") %>%
+  group_by(groupID) %>%
+  summarize(treat_size = n_distinct(sub_id))
+
+
+treat_num %>% arrange(desc(treat_size))
+table(treat_num$treat_size)
+
+emoreg_dat <- left_join(emoreg_dat, treat_num, by = "groupID")
+emoreg_dat <- emoreg_dat %>%
+    mutate(treat_size = if_else(group_cond == "control", -1L, treat_size)) %>%
+    mutate(treat_size = if_else(is.na(treat_size), 0L, treat_size))
+table(emoreg_dat$treat_size)
+
+# rule out those treatment condition groups without any treatment members
+# emoreg_dat <- emoreg_dat %>%
+#  filter(treat_size != 0L)
+
+#table(emoreg_dat$groupID, emoreg_dat$size)
+#table(emoreg_dat$groupID, emoreg_dat$treat_size)
+
+
+```
+
+
+
+# Descriptive Analysis 
+## Sample and conditions
+```{r}
+# Final sample size
+emoreg_dat %>% 
+  summarise(n_distinct(sub_id))
+
+emoreg_dat %>% 
+  summarise(n_distinct(groupID))
+
+solo_dat %>% 
+  summarise(n_distinct(sub_id))
+
+# N by conditions
+emoreg_dat %>% 
+  group_by(grp_method, grp_goal, subgrp) %>% 
+  summarise(n_distinct(sub_id))
+
+# Assignment of conditions
+vtree(emoreg_dat, vars = c("grp_method", "grp_goal"))
+vtree(emoreg_dat, vars = c("subgrp","group_cond"))
+
+```
+
+# Demographic
+```{r}
+emoreg_dat %>%
+  group_by(sex) %>%
+  summarize(n = n_distinct(sub_id))%>%
+  mutate(freq = n / sum(n))
+
+```
+
+
+# Sample size after exclusions
+```{r}
+# valid sample size
+emoreg_dat %>% 
+  filter(is.na(attention_check)) %>%
+  #filter(complete == "complete"|complete == "completed")%>%
+  summarise(n_distinct(sub_id))
+
+# N by conditions
+emoreg_dat %>% 
+  filter(is.na(attention_check)) %>%
+  #filter(complete == "complete"|complete == "completed")%>%
+  group_by(grp_method, grp_goal, subgrp) %>% 
+  summarise(n_distinct(sub_id))
+
+
+```
+
+# Use the after-exclusion data
+```{r}
+## Remove the inattention people
+emoreg_dat <- emoreg_dat %>% 
+  filter(is.na(attention_check))
+
+```
+
+
+# Demographics after exclusison
+```{r}
+emoreg_dat %>%
+  group_by(sex) %>%
+  summarize(n = n_distinct(sub_id))%>%
+  mutate(freq = n / sum(n))
+
+emoreg_dat %>%
+  group_by(sub_id) %>%
+  summarize(age = mean(age)) %>%
+  summarize(mean = mean(age),
+            sd = sd(age),
+            min = min(age),
+            max = max(age))
+
+emoreg_dat %>%
+  group_by(edu) %>%
+  summarize(n = n_distinct(sub_id))%>%
+  mutate(freq = n / sum(n))
+
+emoreg_dat %>%
+  group_by(polAffil) %>%
+  summarize(n = n_distinct(sub_id))%>%
+  mutate(freq = n / sum(n))
+
+
+  
+# Number of regulators and controls
+emoreg_dat %>%
+  group_by(ind_cond, group_cond) %>%
+  summarize(n = n_distinct(sub_id))
+
+# Number of people per group
+emoreg_dat %>%
+  summarize(n = n_distinct(groupID))
+
+
+
+```
+
+
+## Distribution Plots 
+
+```{r}
+
+# Distribution of negative emotion rating
+emoreg_dat %>% ggplot(aes(rate)) + geom_histogram(bins = 10, color = "white") +
+  labs(x = "Negative Emotion Ratings", y = "Frequency",
+       title = "Distribution of negative emotion rating") 
+
+## group by subgroups
+emoreg_dat %>% ggplot(aes(rate, fill = subgrp)) + geom_histogram(bins = 10, color = "white") +
+  labs(x = "Negative Emotion Ratings", y = "Frequency",
+       title = "Distribution of negative emotion rating by subgroups") +
+  scale_fill_discrete(name = "Subgroup")
+
+
+## group by group conditions (method by goal) + subgroups
+emoreg_dat %>% ggplot(aes(subgrp, rate, fill = subgrp)) + 
+  geom_violin(alpha = 0.6) + 
+  geom_boxplot(width = 0.2, alpha = 0.75, aes(fill = subgrp)) +
+  stat_summary(fun=mean, geom='point', shape=20, color = "red", size = 3)+
+  facet_grid(rows = vars(grp_method), cols = vars(grp_goal)) +
+  labs(x = "", y = "Negative Emotion Ratings",
+       title = "Distribution by group method, goal, and subgroup",
+       caption = "Note: there is no treatment subgroup in the non-motivated & observing (control) condition.") +
+  scale_fill_discrete(name = "Subgroup")
+
+```
+
+# Manipulation Checks 
+
+### Manipulation check 1 - compare the reappraisal subgroup vs. control 
+
+```{r}
+# Subset the two groups for comparison
+maniTest_data <- emoreg_dat %>% 
+  filter((grp_method == "reappraisal" & grp_goal =="non_motivated" & subgrp == "treatment")|
+           (grp_method == "observing" & grp_goal == "non_motivated"))
+
+# Fit model
+lmm_mani1 <- lmer(rate ~ subgrp + size + trial + (1|img) + (1|groupID/sub_id), maniTest_data)
+summary(lmm_mani1) # treatment significant :)
+
+plot_model(lmm_mani1)
+
+plot_model(lmm_mani1, "pred", terms =  c("subgrp"))
+
+```
+
+### Manipulation check 2 - compare the first trial results 
+
+```{r}
+
+lmm_mani2 <- lmer(rate ~ grp_method + grp_goal + subgrp + size + (1|img) + (1|groupID), 
+                 emoreg_dat %>% filter(trial == "1"))
+
+summary(lmm_mani2) # treatment signinficant
+
+plot_model(lmm_mani2)
+
+plot_model(lmm_mani2, "pred", terms =  c("subgrp"))
+```
+
+# Main Hypothesis Testing 
+
+### Hypotheses for the treatment subgroup 
+
+```{r}
+emoreg_data_treat <- emoreg_dat %>% 
+  filter(subgrp == "treatment" | (subgrp == "control" & grp_method == "observing" & grp_goal == "non_motivated")) # include the control group
+table(emoreg_data_treat$grp_method, emoreg_data_treat$grp_goal)
+
+
+
+# Fit Mdoel
+table(emoreg_data_treat$treat_size)
+lmm_treat <- lmer(rate ~ grp_goal*grp_method + size + trial + (1|img) +  (1|groupID/sub_id), emoreg_data_treat)
+
+my_summ_lm(lmm_treat)
+
+
+# plot interaction
+plot_lmm_treat <- plot_model(lmm_treat, "int", terms = c("grp_goal", "grp_method"), title = "Treatment Subgroup") + 
+  labs(x = "Goal of regulators", y = "Treatment subgroup ratings", 
+       color = "Method of regulators") + 
+  scale_color_manual(labels = c("Without reappraisal", "With reappraisal"), values = c("red", "blue")) +  
+  theme_classic() +
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+
+plot_lmm_treat
+
+
+```
+
+#### Emmeans analysis (treatment group) 
+
+```{r}
+# testing main effects
+emmeans(lmm_treat, specs = pairwise ~ grp_method)
+
+emmeans(lmm_treat, specs = pairwise ~ grp_goal)
+
+# test simple effects
+emmeans(lmm_treat, specs = pairwise ~ grp_goal|grp_method)
+emmeans(lmm_treat, specs = pairwise ~ grp_method|grp_goal)
+
+
+# Post hoc pair-wise comparison
+lmm_treat2 <- lmer(rate ~ group_cond + size + trial + (1|img) +  (1|groupID/sub_id), emoreg_data_treat)
+
+summary(lmm_treat2)
+
+emmeans(lmm_treat2, pairwise ~ group_cond)
+
+
+```
+
+
+# Bar plot to show the condition effects
+```{r}
+# Custom colors for conditions
+condition_colors <- c('Self-Focused Observing' = 'black', 'Self-Focused Reappraisal' = 'blue',
+            'Group-Focused No Strategy' = 'red', 'Group-Focused Reappraisal' = 'purple')
+
+# bar plot
+treat_summary <- data.frame(
+  Condition = c('Self-Focused Observing', 'Self-Focused Reappraisal',
+                'Group-Focused No Strategy', 'Group-Focused Reappraisal'),
+  Score = c(6.37, 4.57, 4.80, 3.91),
+  SD = c(0.232, 0.244, 0.240, 0.252)  # summary data from emmeans est.
+)
+
+treat_summary$Condition <- factor(treat_summary$Condition, levels = c('Self-Focused Observing', 'Self-Focused Reappraisal',
+                'Group-Focused No Strategy', 'Group-Focused Reappraisal'))
+
+
+
+ggplot(treat_summary, aes(x = Condition, y = Score, color = Condition)) +
+  geom_point(size = 2) +  # Plotting points
+  geom_errorbar(aes(ymin = Score + SD, ymax = Score - SD), width = 0.1) +  # Adding 95% CI error bars
+  scale_color_manual(values = condition_colors) +  # Manually setting colors for points
+  theme_minimal() + 
+  theme(legend.position = "none",  # Remove legend
+        panel.grid.major = element_blank(),  # Remove major grid lines
+        panel.grid.minor = element_blank(),  # Remove minor grid lines
+        axis.line = element_line(colour = "black"),
+        axis.text.x = element_text(size = rel(0.9)),  # Increase size of x-axis text
+        axis.text.y = element_text(size = rel(1.3)),  # Increase size of y-axis text
+        axis.title.x = element_text(size = rel(1.3)),  # Increase size of x-axis title
+        axis.title.y = element_text(size = rel(1.1))) +  # Add axis lines
+  labs(x = "Treatment Condition", y = "Treated Participants' Negative Emotion Ratings")  # Adding labels
+```
+
+
+
+# Main & simple  effect (treatment group)
+```{r}
+# main effect of method -- recode motivation
+emoreg_data_treat$grp_goal2 <- NA
+emoreg_data_treat$grp_goal2[emoreg_data_treat$grp_goal == "motivated"] <- 1
+emoreg_data_treat$grp_goal2[emoreg_data_treat$grp_goal == "non_motivated"] <- -1
+
+summary(lmer(rate ~ grp_goal2*grp_method + size + trial + (1|img) +  (1|groupID/sub_id), emoreg_data_treat))
+
+# main effect of motivation -- recode method
+emoreg_data_treat$grp_method2 <- NA
+emoreg_data_treat$grp_method2[emoreg_data_treat$grp_method == "reappraisal"] <- 1
+emoreg_data_treat$grp_method2[emoreg_data_treat$grp_method == "observing"] <- -1
+
+summary(lmer(rate ~ grp_goal*grp_method2 + size + trial + (1|img) +  (1|groupID/sub_id), emoreg_data_treat))
+
+
+```
+
+
+# Hypotheses for the control subgroup 
+
+```{r}
+emoreg_data_cont <- emoreg_dat %>% 
+  filter(subgrp == "control")
+table(emoreg_data_cont$grp_method, emoreg_data_cont$grp_goal)
+
+table(emoreg_data_cont$group_cond)
+
+  
+# fit LMM
+lmm_cont <- lmer(rate ~ grp_goal*grp_method + size + trial + (1|img) + (1|groupID/sub_id), emoreg_data_cont)
+
+summary(lmm_cont)
+my_summ_lm(lmm_cont)
+
+plot_lmm_cont <- plot_model(lmm_cont, "int", terms = c("grp_method","grp_goal"),title = "") + 
+  labs(x = "Goal of regulators", y = "Control subgroup ratings", 
+       color = "Method of regulators") + 
+  scale_color_manual(labels = c("Without reappraisal", "With reappraisal"), values = c("red", "blue")) +  
+  theme_classic() +
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+
+plot_lmm_cont
+
+
+# goal only vs. reappraisal only?
+#lmm_cont2 <- lmer(rate ~ group_cond + size + trial + (1|img) + (1|groupID/sub_id), emoreg_data_cont)
+#emmeans(lmm_cont2, specs = pairwise ~ group_cond)
+
+```
+
+# Main effect (control group)
+```{r}
+# main effect of method -- recode motivation
+emoreg_data_cont$grp_goal2 <- NA
+emoreg_data_cont$grp_goal2[emoreg_data_cont$grp_goal == "motivated"] <- 0.5
+emoreg_data_cont$grp_goal2[emoreg_data_cont$grp_goal == "non_motivated"] <- -0.5
+
+
+# main effect of motivation -- recode method
+emoreg_data_cont$grp_method2 <- NA
+emoreg_data_cont$grp_method2[emoreg_data_cont$grp_method == "reappraisal"] <- 0.5
+emoreg_data_cont$grp_method2[emoreg_data_cont$grp_method == "observing"] <- -0.5
+
+lm_std <- lmer(rate ~ grp_goal2*grp_method2 + size + trial + (1|img) +  (1|groupID/sub_id), emoreg_data_cont)
+summary(lm_std)
+confint(lm_std)
+
+
+```
+
+
+## Simple effect -- Emmeans analysis (control group) 
+
+```{r, warning=FALSE}
+# Simple effect of method -- recode motivation
+## when grp_goal = motivated = 0
+emoreg_data_cont$grp_goal_simp1 <- NA
+emoreg_data_cont$grp_goal_simp1[emoreg_data_cont$grp_goal == "motivated"] <- 0
+emoreg_data_cont$grp_goal_simp1[emoreg_data_cont$grp_goal == "non_motivated"] <- 1
+lm_simp1 <- lmer(rate ~ grp_goal_simp1*grp_method + size + trial + (1|img) +  (1|groupID/sub_id), emoreg_data_cont)
+my_summ_lm(lm_simp1)
+confint(lm_simp1)
+
+## when grp_goal = non-motivated = 0
+emoreg_data_cont$grp_goal_simp2 <- NA
+emoreg_data_cont$grp_goal_simp2[emoreg_data_cont$grp_goal == "motivated"] <- 1
+emoreg_data_cont$grp_goal_simp2[emoreg_data_cont$grp_goal == "non_motivated"] <- 0
+lm_simp2 <- lmer(rate ~ grp_goal_simp2*grp_method + size + trial + (1|img) +  (1|groupID/sub_id), emoreg_data_cont)
+summary(lm_simp2)
+confint(lm_simp2)
+
+# Simple effect of motivation -- recode method
+## when grp_method = reappraisal = 0
+emoreg_data_cont$grp_method_simp1 <- NA
+emoreg_data_cont$grp_method_simp1[emoreg_data_cont$grp_method == "reappraisal"] <- 0
+emoreg_data_cont$grp_method_simp1[emoreg_data_cont$grp_method == "observing"] <- 1
+
+lm_simp3 <- lmer(rate ~ grp_goal*grp_method_simp1 + size + trial + (1|img) +  (1|groupID/sub_id), emoreg_data_cont)
+my_summ_lm(lm_simp3)
+
+
+## when grp_method = observing = 0
+emoreg_data_cont$grp_method_simp2 <- NA
+emoreg_data_cont$grp_method_simp2[emoreg_data_cont$grp_method == "reappraisal"] <- 1
+emoreg_data_cont$grp_method_simp2[emoreg_data_cont$grp_method == "observing"] <- 0
+
+lm_simp4 <- lmer(rate ~ grp_goal*grp_method_simp2 + size + trial + (1|img) +  (1|groupID/sub_id), emoreg_data_cont)
+summary(lm_simp4)
+confint(lm_simp4)
+
+# diagonal contrast
+emm_options(lmer.df = "satterthwaite")
+emm <- emmeans(lm_std, ~ grp_goal2 * grp_method2, lmerTest.limit = 19356)
+
+# Compare (1,1) vs (0,0)
+contr <- contrast(emm, method = list("11 vs 00" = c(-1, 0, 0, 1)))  # Order = (0,0), (0,1), (1,0), (1,1)
+summary(contr)
+confint(contr)
+```
+
+
+# An alternative plot for the controls
+```{r fig.width=10, fig.height=6}
+summary_control <- data.frame(
+  group_cond_new = c('Self-Focused Observing', 'Self-Focused Reappraisal',
+                'Group-Focused No Strategy', 'Group-Focused Reappraisal'),
+  mean_rate = c(6.37, 5.83, 6.08, 5.68),   # summary data from emmeans est.
+  se = c(0.243, 0.251, 0.245, 0.256)
+)
+
+summary_control$ci_lower = summary_control$mean_rate - 1.96 * summary_control$se
+summary_control$ci_upper = summary_control$mean_rate + 1.96 * summary_control$se
+
+summary_control$group_cond_new <- factor(summary_control$group_cond_new, levels = c('Self-Focused Observing', 'Self-Focused Reappraisal',
+                'Group-Focused No Strategy', 'Group-Focused Reappraisal'))
+
+
+colors <- c("Self-Focused Observing" = "black", "Self-Focused Reappraisal" = "blue", 
+            "Group-Focused No Strategy" = "red", "Group-Focused Reappraisal" = "purple")
+
+
+plot_cont_sum <- ggplot(summary_control, aes(x = group_cond_new, y = mean_rate, color = group_cond_new)) +
+  geom_point(size = 4) +  # Plotting points
+  geom_errorbar(aes(ymin = mean_rate + se, ymax = mean_rate - se), width = 0.2) +  # Adding 95% CI error bars
+  scale_color_manual(values = colors) +  # Manually setting colors for points
+  theme_minimal() + 
+  theme(legend.position = "none",  # Remove legend
+        panel.grid.major = element_blank(),  # Remove major grid lines
+        panel.grid.minor = element_blank(),  # Remove minor grid lines
+        axis.line = element_line(colour = "black"),
+        axis.text.x = element_text(size = rel(1.2)),  # Increase size of x-axis text
+        axis.text.y = element_text(size = rel(1.5)),  # Increase size of y-axis text
+        axis.title.x = element_text(size = rel(1.5)),  # Increase size of x-axis title
+        axis.title.y = element_text(size = rel(1.5))) +  # Add axis lines
+  labs(x = "Treatment Condition", y = "Non-Treated Subgroup Negative Emotions")  # Adding labels
+
+plot_cont_sum
+
+```
+
+
+# Fig. 2 in the paper
+## Plot combining the treated and non-treated subgroup
+```{r}
+# Prepare the data for the combined plot
+treat_summary$Group <- "Treated"
+summary_control$Group <- "Non-Treated"
+
+# Rename columns for consistency and combine the two datasets
+combined_data <- bind_rows(
+  treat_summary %>% rename(Condition = Condition, Rating = Score, SE = SD),
+  summary_control %>% rename(Condition = group_cond_new, Rating = mean_rate, SE = se)
+)
+
+# Ensure consistent factor levels
+combined_data$Condition <- factor(combined_data$Condition, levels = c(
+  'Self-Focused Observing', 'Self-Focused Reappraisal',
+  'Group-Focused No Strategy', 'Group-Focused Reappraisal'
+))
+
+# Rename the conditions in the plot
+levels(combined_data$Condition) <- c(
+  "Control",
+  "Reappraisal Only",
+  "Group-Focused Motivation Only",
+  "Group-Focused Motivation + Reappraisal"
+)
+
+combined_data$Group <- factor(combined_data$Group, levels = c("Treated", "Non-Treated"))
+
+# Plot
+effect_plot <- ggplot(combined_data, aes(x = Condition, y = Rating, color = Condition)) +
+  geom_point(size = 2, position = position_dodge(width = 0.5)) +  # Plot points
+  geom_errorbar(aes(ymin = Rating - SE, ymax = Rating + SE), width = 0.2, position = position_dodge(width = 0.5)) +  # Error bars
+  scale_color_manual(values = c(
+    'Control' = 'black', 
+    'Reappraisal Only' = 'blue',
+    'Group-Focused Motivation Only' = 'red', 
+    'Group-Focused Motivation + Reappraisal' = 'purple'
+  )) +
+  facet_wrap(~ Group, ncol = 2, scales = "free_y") + # Create one facet for each group
+  theme_classic(base_size = 14) +
+  theme(
+    legend.position = "none",
+    plot.background   = element_rect(fill = "white", color = NA),
+    panel.background  = element_rect(fill = "white", color = NA),
+    strip.background  = element_blank(),
+    strip.text        = element_text(face = "bold"),
+    panel.grid.major  = element_blank(),
+    panel.grid.minor  = element_blank(),
+    axis.line         = element_line(colour = "black"),
+    axis.text.x       = element_text(size = rel(1.1), angle = 20, hjust = 1),
+    axis.text.y       = element_text(size = rel(1.3)),
+    axis.title.x      = element_text(size = rel(1.3), face = "bold"),
+    axis.title.y      = element_text(size = rel(1.3), face = "bold")
+  ) +
+  labs(
+    x = "Condition of the Treated Subgroup",
+    y = "Negative Emotion Ratings"
+    ) +
+  ylim(c(3.6, 6.9))
+
+effect_plot
+ggsave("../Figures/Figure 2-new.png", width = 13, height =6, dpi=300)
+
+```
+
+## Spillover effect plot
+```{r}
+# Example data
+proportion_data <- data.frame(
+  Condition = c('Self-Focused Reappraisal', 'Group-Focused Non-Reappraisal', 'Group-Focused Reappraisal'),
+  Treated_Reduction = c(6.37 - 4.57, 6.37 - 4.80, 6.37 - 3.91),  # Treated reductions
+  Non_Treated_Reduction = c(6.37 - 5.83, 6.37 - 6.08, 6.37 - 5.68)  # Non-treated reductions
+)
+
+# Compute proportions
+proportion_data$Proportion <- proportion_data$Non_Treated_Reduction / proportion_data$Treated_Reduction
+
+# Convert to long format for plotting
+plot_data <- proportion_data %>%
+  pivot_longer(cols = c(Treated_Reduction, Non_Treated_Reduction), 
+               names_to = "Group", values_to = "Reduction") %>%
+  mutate(Group = recode(Group, 
+                        Treated_Reduction = "Treated",
+                        Non_Treated_Reduction = "Non-Treated"))
+
+spillover_plot <- ggplot(plot_data, aes(x = Condition, y = Reduction, fill = Group)) +
+  geom_bar(stat = "identity", position = "identity", alpha = 0.9, color = "black", width = 0.5) +  # Overlapping bars
+  geom_text(data = plot_data %>% filter(Group == "Non-Treated"), 
+            aes(
+              x = as.numeric(factor(Condition)),  # Use numeric positions for consistent alignment
+              y = Reduction / 2,  # Centered vertically on the bar
+              label = scales::percent(Proportion)  # Proportion text
+            ),
+            inherit.aes = FALSE, hjust = -1.1, size = 4, color = "black") +  # Position on the left side
+  scale_fill_manual(values = c("Treated" = "gray", "Non-Treated" = "black")) +  # Custom colors
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(size = rel(1.1), angle = 20, hjust = 1),  # Rotate x-axis labels
+    axis.text.y = element_text(size = rel(1.3)),
+    axis.title.x = element_text(size = rel(1.2), face = "bold"),
+    axis.title.y = element_text(size = rel(1.1), face = "bold"),
+    legend.position = "top"  # Place legend at the top
+  ) +
+  labs(
+    x = "Condition of the Treated Subgroup",
+    y = "Reduction in Negative Emotion Ratings",
+    fill = "Subgroup")
+
+spillover_plot
+```
+
+## Combine the two plots for the paper (Figure 2)
+```{r, fig.width=12, fig.height=7}
+library(patchwork)
+
+combined_plot <- effect_plot + spillover_plot + 
+  plot_annotation(tag_levels = "A") +
+    plot_layout(widths = c(1, 1.2))  
+
+combined_plot
+
+ggsave("../Figures/Figure 2.png", width = 12, height =7, dpi=300)
+```
+
+
+
+
+
+# How many groups do we need to get a significant effect of goal 
+## (simulation analysis)
+```{r}
+
+simulate_data <- function(model, target_groups, iterations = 100) {
+  # Extract the original dataset
+  original_data <- model@frame
+  unique_groups <- unique(original_data$groupID)
+
+  # Initialize storage for simulation results
+  results <- data.frame(
+    group_size = integer(),
+    num_individuals = integer(),
+    iteration = integer(),
+    estimate = numeric(),
+    SE = numeric(),
+    z_ratio = numeric(),
+    p_value = numeric()
+  )
+  
+
+    # Loop over iterations
+  for (i in 1:iterations) {
+    # Step 1: Bootstrap groups to match the target number of groups
+    sampled_groups <- sample(unique_groups, target_groups, replace = TRUE)  # Sampling with replacement
+    
+    bootstrap_data <- lapply(sampled_groups, function(group) {
+      # Filter rows for the sampled group
+      group_data <- original_data[original_data$groupID == group, ]
+      
+      # Count how many times the group was sampled
+      duplicate_count <- sum(sampled_groups == group)
+      
+      # Check if group_data is valid
+      if (nrow(group_data) == 0) {
+        stop(paste("Group", group, "does not exist in the original data"))
+      }
+      
+      # Replicate the group rows and assign unique IDs for each instance
+      replicate_rows <- lapply(1:duplicate_count, function(dup) {
+        group_data %>%
+          mutate(
+            groupID = paste0(groupID, "_dup", dup),  # Unique groupID for each instance
+            sub_id = paste0(sub_id, "_dup", dup)    # Unique sub_id for each instance
+          )
+      })
+      
+      # Combine all replicated rows for this group
+      bind_rows(replicate_rows)
+    }) %>%
+      bind_rows()
+    
+    # Step 2: Simulate responses based on the fitted model
+    # simulated_response <- simulate(model, newdata = bootstrap_data, allow.new.levels = TRUE)[[1]]
+    # bootstrap_data$rate <- simulated_response
+    
+    # Step 3: Fit the model to the bootstrapped dataset
+    simulated_model <- lmer(rate ~ grp_goal * grp_method + size + trial + (1|img) + (1|groupID/sub_id), data = bootstrap_data)
+    
+    # Step 4: Compute the simple effect using emmeans
+    emm <- suppressMessages(emmeans(simulated_model, ~ grp_method * grp_goal))
+    contrast_result <- suppressMessages(contrast(emm, method = "pairwise", adjust = "tukey"))
+
+
+    # Step 5: Save the results
+    results <- rbind(results, data.frame(
+      group_size = n_distinct(bootstrap_data$groupID),
+      num_individuals = n_distinct(bootstrap_data$sub_id),
+      iteration = i,
+      estimate = as.data.frame(contrast_result[2])[2],
+      SE = as.data.frame(contrast_result[2])[3],
+      z_ratio = as.data.frame(contrast_result[2])[5],
+      p_value = as.data.frame(contrast_result[2])[6]
+    ))
+  }
+  
+  return(results)
+}
+
+
+# Define the range of group sizes
+group_sizes <- seq(500, 1500, by = 100)
+iterations <- 100  # Number of simulations per group size
+
+# Initialize storage for all simulation results
+all_results <- data.frame(
+  group_size = integer(),
+  num_individuals = integer(),
+  iteration = integer(),
+  estimate = numeric(),
+  SE = numeric(),
+  z_ratio = numeric(),
+  p_value = numeric()
+)
+
+# Loop over group sizes and run simulations
+for (group_size in group_sizes) {
+  # Run the simulation for the current group size
+  sim_results <- suppressWarnings(simulate_data(lmm_cont, target_groups = group_size, iterations = iterations))
+  
+  # Save all simulation results
+  all_results <- rbind(all_results, sim_results)
+  saveRDS(all_results, "sim_results.rds")
+}
+
+
+```
+
+```{r}
+all_results <- readRDS("sim_results.rds")
+
+# Summarize results by sample size
+summary_results <- all_results %>%
+  group_by(group_size) %>%
+  summarise(
+    avg_sample_size = mean(num_individuals),
+    avg_estimate = mean(estimate),
+    avg_SE = mean(SE),
+    avg_z_ratio = mean(z.ratio),
+    avg_p_value = mean(p.value))
+
+# View the summarized results
+print(summary_results)
+
+```
+
+
+
+# Try moderation effect of regulator amount
+```{r}
+lmm_cont2 <- lmer(rate ~ group_cond*treat_size + size + trial + 
+                    (1|img) + (1|groupID/sub_id), emoreg_data_cont)
+
+summary(lmm_cont2)
+
+# For subjects in the each ondition
+summary(lmer(rate ~ treat_size + size + trial + (1|img) + (1|groupID/sub_id), 
+             emoreg_data_cont %>% filter(group_cond %in% c("motivation"))))
+summary(lmer(rate ~ treat_size + size + trial + (1|img) + (1|groupID/sub_id), 
+             emoreg_data_cont %>% filter(group_cond %in% c("reappraisal"))))
+summary(lmer(rate ~ treat_size + size + trial + (1|img) + (1|groupID/sub_id), 
+             emoreg_data_cont %>% filter(group_cond %in% c("reappraisal & motivation"))))
+
+lmm_cont_t1 <- lmer(rate ~ grp_goal*grp_method + size + trial + (1|img) + (1|groupID/sub_id), 
+                 emoreg_data_cont %>% filter(treat_size %in% c(-1,1)))
+summary(lmm_cont_t1)
+treat1 <- plot_model(lmm_cont_t1, "int", terms = c("grp_method","grp_goal"), title = "Control Subgroup, Regulator # = 1") 
+
+lmm_cont_t2 <- lmer(rate ~ grp_goal*grp_method + size + trial + (1|img) + (1|groupID/sub_id), 
+                 emoreg_data_cont %>% filter(treat_size %in% c(-1,2)))
+summary(lmm_cont_t2)
+treat2 <- plot_model(lmm_cont_t2, "int", terms = c("grp_method","grp_goal"), title = "Control Subgroup, Regulator # = 2") 
+
+
+lmm_cont_t3 <- lmer(rate ~ grp_goal*grp_method + size + trial + (1|img) + (1|groupID/sub_id), 
+                 emoreg_data_cont %>% filter(treat_size %in% c(-1,3)))
+summary(lmm_cont_t3)
+treat3 <- plot_model(lmm_cont_t3, "int", terms = c("grp_method","grp_goal"), title = "Control Subgroup, Regulator # = 3") 
+
+ggpubr::ggarrange(treat1, treat2, treat3, nrow = 1)
+
+
+```
+
+### Compare the first vs. last 10 trials
+```{r}
+emoreg_data_cont$trial_int = as.integer(emoreg_data_cont$trial)
+emoreg_data_cont$trial_binary = ifelse (emoreg_data_cont$trial_int<11,"first_half","second_half")
+
+table(emoreg_data_cont$trial_binary)
+
+# visualization
+jpeg("../../Figures/trial_binary_split.jpeg")
+emoreg_data_cont %>% 
+  ggplot(aes(x = grp_goal, y = rate, color = factor(grp_method), group = grp_method)) + 
+  stat_summary(fun.y = mean,
+#               fun.ymin = function(x) mean(x) - sd(x), 
+#               fun.ymax = function(x) mean(x) + sd(x), 
+               geom = "pointrange") +
+  stat_summary(fun.y = mean,
+               geom = "line") +
+  facet_wrap(vars(trial_binary)) + 
+  scale_y_continuous(breaks = seq(0, 10, 1)) +
+  labs(title = "Control subgroup ratings by trials and conditions")
+dev.off()
+
+# regression
+lmm_cont_trial <- lmer(rate ~ grp_goal*grp_method*trial_binary + size + (1|img)+ (1|groupID/sub_id), 
+                 emoreg_data_cont)
+
+summary(lmm_cont_trial)
+
+emmeans(lmm_cont_trial, specs = pairwise ~  grp_goal | trial_binary)
+emmeans(lmm_cont_trial, specs = pairwise ~  grp_goal | c(grp_method, trial_binary))
+
+
+```
+
+### Split the trials to three
+```{r, warning=FALSE}
+emoreg_data_cont$trial_tri[emoreg_data_cont$trial_int < 7] = "first(1-6)"
+emoreg_data_cont$trial_tri[emoreg_data_cont$trial_int >= 7 & emoreg_data_cont$trial_int < 14] = "sencond(7-13)"
+emoreg_data_cont$trial_tri[emoreg_data_cont$trial_int >= 14] = "third(14-20)"
+
+table(emoreg_data_cont$trial_tri)
+
+
+# visualization
+jpeg("../../Figures/trial_tri_split.jpeg")
+emoreg_data_cont %>% 
+  mutate(across(group_cond, factor, 
+                levels=c("control", "reappraisal", "motivation", "reappraisal & motivation"))) %>%
+  ggplot(aes(x = grp_goal, y = rate, color = factor(group_cond))) + 
+  stat_summary(fun.y = mean,
+#               fun.ymin = function(x) mean(x) - sd(x), 
+#               fun.ymax = function(x) mean(x) + sd(x), 
+               geom = "pointrange") +
+  stat_summary(fun.y = mean,
+               geom = "line") +
+  facet_wrap(vars(trial_tri)) + 
+  scale_y_continuous(breaks = seq(0, 10, 1)) +
+  labs(title = "Control subgroup average ratings by trials and conditions")
+dev.off()
+
+```
+
+
+### Split the trials to four
+```{r dev = "png"}
+emoreg_data_cont$trial_four = NA
+emoreg_data_cont$trial_four[emoreg_data_cont$trial_int <= 5] = "first(1-5)"
+emoreg_data_cont$trial_four[emoreg_data_cont$trial_int > 5 & emoreg_data_cont$trial_int <= 10] = "sencond(6-10)"
+emoreg_data_cont$trial_four[emoreg_data_cont$trial_int > 10 & emoreg_data_cont$trial_int <= 15] = "third(11-15)"
+emoreg_data_cont$trial_four[emoreg_data_cont$trial_int > 15 & emoreg_data_cont$trial_int <= 20] = "last(16-20)"
+
+table(emoreg_data_cont$trial_four)
+table(emoreg_data_cont$group_cond)
+
+
+# visualization
+jpeg("../../Figures/trial_four_split.jpeg")
+emoreg_data_cont %>% 
+  mutate(across(trial_four, factor, 
+                levels=c("first(1-5)","sencond(6-10)","third(11-15)","last(16-20)"))) %>%
+  mutate(across(group_cond, factor, 
+                levels=c("control", "reappraisal", "motivation", "reappraisal & motivation"))) %>%
+  mutate(group_cond = fct_recode(group_cond, "Control" = "control", "Self / Reappraisal" = "reappraisal",
+                                 "Other / Reappraisal" = "reappraisal & motivation", 
+                                 "Other / No Strategy" = "motivation")) %>%
+  ggplot(aes(x = trial_four, y = rate, color = factor(group_cond))) + 
+  geom_pointrange(stat = "summary", fun.data = mean_se, size = 1, fatten = 1.5) +
+  scale_color_manual(values = c("black", "blue", "red", "purple")) +
+  scale_y_continuous(breaks = seq(0, 10, 0.5)) +
+  labs(title = "", x = "Trials", y = "Control Subgroup Ratings", color = "Conditions") +
+  theme_classic() 
+dev.off()
+
+
+## Show the conditions step by step
+### Control + Other / Reappraisal
+emoreg_data_cont %>% 
+  mutate(across(trial_four, factor, 
+                levels=c("first(1-5)","sencond(6-10)","third(11-15)","last(16-20)"))) %>%
+  mutate(across(group_cond, factor, 
+                levels=c("control", "reappraisal", "motivation", "reappraisal & motivation"))) %>%
+  mutate(group_cond = fct_recode(group_cond, "Control" = "control", "Self / Reappraisal" = "reappraisal",
+                                 "Other / Reappraisal" = "reappraisal & motivation", 
+                                 "Other / No Strategy" = "motivation")) %>%
+  filter(group_cond == "Control" | group_cond == "Other / Reappraisal") %>%
+  ggplot(aes(x = trial_four, y = rate, color = factor(group_cond))) + 
+  geom_pointrange(stat = "summary", fun.data = mean_se, size = 1, fatten = 1.5) +
+  scale_color_manual(values = c("black", "purple")) +
+  scale_y_continuous(breaks = seq(0, 15, 0.5)) +
+  labs(title = "", x = "Trials", y = "Control Subgroup Ratings", color = "Conditions") +
+  theme_classic() 
+
+### Control +  Self-reappraisal
+emoreg_data_cont %>% 
+  mutate(across(trial_four, factor, 
+                levels=c("first(1-5)","sencond(6-10)","third(11-15)","last(16-20)"))) %>%
+  mutate(across(group_cond, factor, 
+                levels=c("control", "reappraisal", "motivation", "reappraisal & motivation"))) %>%
+  mutate(group_cond = fct_recode(group_cond, "Control" = "control", "Self / Reappraisal" = "reappraisal",
+                                 "Other / Reappraisal" = "reappraisal & motivation", 
+                                 "Other / No Strategy" = "motivation")) %>%
+  filter(group_cond == "Control" | group_cond == "Self / Reappraisal") %>%
+  ggplot(aes(x = trial_four, y = rate, color = factor(group_cond))) + 
+  geom_pointrange(stat = "summary", fun.data = mean_se, size = 1, fatten = 1.5) +
+  scale_color_manual(values = c("black","blue")) +
+  labs(title = "", x = "Trials", y = "Control Subgroup Ratings", color = "Conditions") +
+  theme_classic() +
+  coord_cartesian(ylim = c(5.0, 7.0))
+
+### Add Self-reappraisal
+emoreg_data_cont %>% 
+  mutate(across(trial_four, factor, 
+                levels=c("first(1-5)","sencond(6-10)","third(11-15)","last(16-20)"))) %>%
+  mutate(across(group_cond, factor, 
+                levels=c("control", "reappraisal", "motivation", "reappraisal & motivation"))) %>%
+  mutate(group_cond = fct_recode(group_cond, "Control" = "control", "Self / Reappraisal" = "reappraisal",
+                                 "Other / Reappraisal" = "reappraisal & motivation", 
+                                 "Other / No Strategy" = "motivation")) %>%
+  filter(group_cond == "Control" | group_cond == "Other / Reappraisal" | group_cond == "Self / Reappraisal") %>%
+  ggplot(aes(x = trial_four, y = rate, color = factor(group_cond))) + 
+  geom_pointrange(stat = "summary", fun.data = mean_se, size = 1, fatten = 1.5) +
+  scale_color_manual(values = c("black","blue", "purple")) +
+  scale_y_continuous(breaks = seq(0, 10, 0.5)) +
+  labs(title = "", x = "Trials", y = "Control Subgroup Ratings", color = "Conditions") +
+  theme_classic() 
+
+
+
+lmm_cont_trial4 <- lmer(rate ~ grp_goal*grp_method*trial_four + size + (1|img)+ (1|groupID/sub_id), 
+                 emoreg_data_cont)
+
+summary(lmm_cont_trial4)
+
+emmeans(lmm_cont_trial4, specs = pairwise ~  grp_goal | c(trial_four, grp_method))
+emmeans(lmm_cont_trial4, specs = pairwise ~  c(grp_goal,grp_method) | trial_four)
+
+
+```
+
+### Means by condition in each trial
+
+```{r}
+df_means <- data.frame(matrix(ncol = 3, nrow = 0))
+colnames(df_means) <- c("trial", "condition", "rating")
+
+for (i in 1:20) {
+  # control
+  control_dat <- emoreg_data_cont %>%
+                      filter(grp_goal == "non_motivated" & 
+                               grp_method == "observing" & trial_int == i)
+  control_m <- mean(control_dat$rate, na.rm = T)
+  df_means[nrow(df_means) + 1,] = c(i, "control", control_m)
+  
+  # reappraisal
+  reapp_dat <- emoreg_data_cont %>%
+                      filter(grp_goal == "non_motivated" & 
+                               grp_method == "reappraisal" & trial_int == i)
+  reapp_m <- mean(reapp_dat$rate, na.rm = T)
+  df_means[nrow(df_means) + 1,] = c(i, "reappraisal", reapp_m)
+  
+  # motivated
+  moti_dat <- emoreg_data_cont %>%
+                      filter(grp_goal == "motivated" & 
+                               grp_method == "observing" & trial_int == i)
+  moti_m <- mean(moti_dat$rate, na.rm = T)
+  df_means[nrow(df_means) + 1,] = c(i, "motivation", moti_m)
+  
+  # both
+  both_dat <- emoreg_data_cont %>%
+                      filter(grp_goal == "motivated" & 
+                               grp_method == "reappraisal" & trial_int == i)
+  both_m <- mean(both_dat$rate, na.rm = T)
+  df_means[nrow(df_means) + 1,] = c(i, "motivation & reappraisal", both_m)
+}
+
+df_means$rating <- as.numeric(df_means$rating)
+df_means$trial <- as.integer(df_means$trial)
+
+```
+
+```{r}
+jpeg("../../Figures/means_at _trial.jpeg")
+df_means %>% 
+  mutate(across(condition, factor, 
+                levels=c("control", "reappraisal", "motivation", "motivation & reappraisal"))) %>%
+  mutate(condition = recode(condition, reappraisal = "self reapp", motivation = "group goal only", "motivation & reappraisal" = "group reapp")) %>%
+  ggplot(aes(x = trial, y = rating, color = condition)) +
+  geom_smooth( se = F) + 
+  geom_point() + 
+  labs(y = "Control subgroup average ratings") +
+  theme_classic()
+
+dev.off()
+
+df_means %>% 
+  mutate(across(condition, factor, 
+                levels=c("control", "reappraisal", "motivation", "motivation & reappraisal"))) %>%
+  mutate(condition = recode(condition, reappraisal = "self reapp", motivation = "group goal only", "motivation & reappraisal" = "group reapp")) %>%
+  ggplot(aes(x = trial, y = rating, color = condition)) +
+  geom_smooth( se = F) + 
+  geom_point() + 
+  labs(y = "Control subgroup average ratings") +
+  theme_classic()
+
+
+```
+
+
+## Emmeans of trial
+```{r}
+emmeans(lmm_cont_trial, pairwise ~ grp_method | trial_binary)
+
+emmeans(lmm_cont_trial, pairwise ~ grp_goal | trial_binary)
+
+```
+
+## Trial moderation effect 
+```{r}
+lmm_cont_trial <- lmer(rate ~ grp_goal*grp_method*trial + size + (1|img)+ (1|groupID/sub_id), 
+                 emoreg_data_cont)
+
+summary(lmm_cont_trial)
+
+```
+
+
+## effect size of goal by trials
+```{r}
+moti_effects <- data.frame(matrix(ncol = 2, nrow = 0))
+colnames(moti_effects) <- c("trial", "moti_effects")
+
+for (i in 1:20) {
+  lm_trial_moti <- lmer(rate ~ grp_goal*grp_method2 + size + (1|img) + (1|groupID),
+                     emoreg_data_cont %>% filter(trial_int == i))
+  moti_effects[i,2] <- as.numeric(fixef(lm_trial_moti)[2])
+
+}
+
+moti_effects$trial <- 1:20
+
+moti_effects %>% ggplot(aes(x = trial, y = moti_effects)) +
+  geom_point() +
+  geom_smooth() +
+  #geom_errorbar(aes(ymin = CIL, ymax = CIH), width = 0.1) +
+  ylab("Main effect of group-focused goal") +
+  geom_hline(yintercept = 0, color = "red") + 
+  theme_classic()
+
+
+```
+
+
+## effect size of method by trials
+```{r}
+method_effects <- data.frame(matrix(ncol = 2, nrow = 0))
+colnames(method_effects) <- c("trial", "method_effect")
+
+for (i in 1:20) {
+  lm_trial_method <- lmer(rate ~ grp_goal2*grp_method + size + (1|img) + (1|groupID),
+                     emoreg_data_cont %>% filter(trial_int == i))
+  method_effects[i,2] <- as.numeric(fixef(lm_trial_method)[3])
+}
+
+method_effects$trial <- 1:20
+
+method_effects %>% ggplot(aes(x = trial, y = method_effect)) +
+  geom_point() +
+  geom_smooth() +
+  #geom_errorbar(aes(ymin = CIL, ymax = CIH), width = 0.1) +
+  ylab("Main effect of reappraisal") +
+  geom_hline(yintercept = 0, color = "red") + 
+  theme_classic()
+```
+
+# Difference in difference
+```{r}
+
+emoreg_data_cont_3grp <- emoreg_data_cont %>%
+  filter(group_cond %in% c("control", "reappraisal", "motivation"))
+
+table(emoreg_data_cont$group_cond)
+table(emoreg_data_cont_3grp$group_cond)
+
+lmm_did <- lmer(rate ~ group_cond + size + (1|img)+ (1|groupID/sub_id), emoreg_data_cont_3grp)
+summary(lmm_did)
+
+plot_model(lmm_did, title = "Control Subgroup Ratings - Effect Plots")
+
+```
+
+# include the solo data
+```{r solo}
+solo_dat <- read_csv("../../Data/emoReg_clean_solo.csv")
+
+# Change variable types
+solo_dat <- solo_dat %>%
+  mutate_at(vars(sub_id, group_cond, img), factor) %>%
+  mutate(rate = as.numeric(rate),
+         trial = as.numeric(trial))
+
+solo_dat$trial_int = as.integer(solo_dat$trial)
+
+
+# Overview of solo EDA
+solo_dat %>%
+  summarise(n_distinct(sub_id))
+
+solo_dat %>%
+  group_by(group_cond) %>%
+  summarise(n_distinct(sub_id))
+
+
+df_means_solo <- df_means
+
+for (i in 1:20) {
+  solo_dati <- solo_dat %>%
+                      filter(trial_int == i)
+  control_m <- mean(solo_dati[solo_dati$group_cond == "control",]$rate, na.rm = T)
+  reapp_m <- mean(solo_dati[solo_dati$group_cond == "reapp",]$rate, na.rm = T)
+  df_means_solo[nrow(df_means_solo) + 1,] = c(i, "solo (reappraisal)", reapp_m)
+  df_means_solo[nrow(df_means_solo) + 1,] = c(i, "solo (control)", control_m)
+}
+
+df_means_solo$rating <- as.numeric(df_means_solo$rating)
+df_means_solo$trial <- as.integer(df_means_solo$trial)
+
+df_means_solo %>% 
+  mutate(across(condition, factor, 
+                levels=c("control", "reappraisal", "motivation", 
+                         "motivation & reappraisal", "solo (control)", "solo (reappraisal)"))) %>%
+  ggplot(aes(x = trial, y = rating, color = condition)) +
+  geom_point() + 
+  geom_smooth(se = F, na.rm = T) +
+  labs(title = "Control subgroup + solo avergae ratings by condition & trial")
+
+
+```
+
+
+# solo reappraisal vs. group reappraisal
+
+```{r}
+df_means_t <- data.frame(matrix(ncol = 3, nrow = 0))
+colnames(df_means_t) <- c("trial", "condition", "rating")
+
+emoreg_data_treat$trial_int <- as.integer(emoreg_data_treat$trial)
+
+for (i in 1:20) {
+  # control
+  control_dat <- emoreg_data_treat %>%
+                      filter(grp_goal == "non_motivated" & 
+                               grp_method == "observing" & trial_int == i)
+  control_m <- mean(control_dat$rate, na.rm = T)
+  df_means_t[nrow(df_means_t) + 1,] = c(i, "control", control_m)
+  
+  # reappraisal
+  reapp_dat <- emoreg_data_treat %>%
+                      filter(grp_goal == "non_motivated" & 
+                               grp_method == "reappraisal" & trial_int == i)
+  reapp_m <- mean(reapp_dat$rate, na.rm = T)
+  df_means_t[nrow(df_means_t) + 1,] = c(i, "reappraisal", reapp_m)
+  
+  # motivated
+  moti_dat <- emoreg_data_treat %>%
+                      filter(grp_goal == "motivated" & 
+                               grp_method == "observing" & trial_int == i)
+  moti_m <- mean(moti_dat$rate, na.rm = T)
+  df_means_t[nrow(df_means_t) + 1,] = c(i, "motivation", moti_m)
+  
+  # both
+  both_dat <- emoreg_data_treat %>%
+                      filter(grp_goal == "motivated" & 
+                               grp_method == "reappraisal" & trial_int == i)
+  both_m <- mean(both_dat$rate, na.rm = T)
+  df_means_t[nrow(df_means_t) + 1,] = c(i, "motivation & reappraisal", both_m)
+  
+  # solo 
+  solo_dati <- solo_dat %>%
+                      filter(trial_int == i)
+  control_m <- mean(solo_dati[solo_dati$group_cond == "control",]$rate, na.rm = T)
+  reapp_m <- mean(solo_dati[solo_dati$group_cond == "reapp",]$rate, na.rm = T)
+  df_means_t[nrow(df_means_t) + 1,] = c(i, "solo (reappraisal)", reapp_m)
+  df_means_t[nrow(df_means_t) + 1,] = c(i, "solo (control)", control_m)
+}
+
+df_means_t$rating <- as.numeric(df_means_t$rating)
+df_means_t$trial <- as.integer(df_means_t$trial)
+
+```
+
+
+```{r}
+
+df_means_t %>% 
+  mutate(across(condition, factor, 
+                levels=c("control", "reappraisal", "motivation", 
+                         "motivation & reappraisal", "solo (reappraisal)", "solo (control)"))) %>%
+  ggplot(aes(x = trial, y = rating, color = condition)) +
+  geom_point() + 
+  geom_line() +
+  labs(caption = "Data are the treatment subgroup ratings (except for the solo condition)")
+
+```
+
+# Similarity between subgroups
+
+
+
+# Power Analysis 
+
+```{r power}
+#summary(lmm_cont)
+fixed <- as.array(unname(fixef(lmm_cont)))
+rand <- list(1.1323, 0.8164, 1.0908)
+
+#sim_lmm <- makeLmer(rate ~ grp_method*grp_goal + size + trial + (1|img)+ (1|groupID/sub_id), fixef=fixed, VarCorr=rand, sigma=s,  data = emoreg_data_cont)
+
+large_model <- extend(lmm_cont, along="sub_id", n=3000)
+
+sim_method <- powerSim(lmm_cont, nsim=100, test = fcompare(rate~grp_goal + trial + size))
+
+load("p_curve_method.rda")
+p_curve_method <- powerCurve(large_model, test=fcompare(rate~grp_goal + trial + size), nsim=20, along="sub_id")
+jpeg("../../Figures/p_curve_method.jpeg")
+plot(p_curve_method)
+dev.off()
+
+save(p_curve_method, file = "p_curve_method.rda")
+
+sim_goal <- powerSim(large_model, nsim=100, test = fcompare(rate~grp_method + size + trial))
+
+load("p_curve_goal.rda")
+p_curve_goal <- powerCurve(large_model, test=fcompare(rate~grp_method + trial + size), nsim=25, along="sub_id")
+jpeg("../../Figures/p_curve_goal.jpeg")
+plot(p_curve_goal)
+dev.off()
+
+save(p_curve_goal, file = "p_curve_goal.rda")
+
+
+
+```
+
+# Bert data
+```{r}
+bert_solo <- read_csv("../Data/embed_solo_output.csv")
+bert_grp <- read_csv("../Data/embed_output.csv")
+
+head(bert_grp)
+```
+
+# Calculate reappraisal baseline by each image by solo data
+```{r}
+
+table(bert_solo$group_cond)
+ 
+base_line <- data.frame(matrix(ncol = 21, nrow = 768))
+
+dim_name <- c()
+
+for (i in 1:768) {
+  dimi <- paste0("embed", i-1)
+  dim_name <- append(dim_name, dimi)
+}
+
+base_line[1] <- as.array(dim_name)
+
+colnames(base_line)[1] <- "dim"
+
+for (i in 1:20) {
+  base_line_imgi <- bert_solo %>%
+  filter(img == i) %>%
+  filter(group_cond %in% c("reapp", "control")) %>%
+  group_by(group_cond) %>%
+  summarize(across(starts_with("embed"),~mean(.x))) %>%
+  pivot_longer(-group_cond, names_to = "dim", values_to = "base_line") %>%
+  pivot_wider(values_from = base_line, names_from = group_cond, names_prefix = "base_") %>%
+  rowwise() %>%
+  mutate(base_line = base_reapp - base_control) %>%
+  ungroup()
+  
+  base_line[i+1] <- base_line_imgi$base_line
+}
+
+
+#saveRDS(base_line, here("../../Data/base_line.rds"))
+
+```
+
+## Another way to calculate baseline by grouped data
+```{r}
+
+base_line <- data.frame(matrix(ncol = 21, nrow = 768))
+dim_name <- c()
+
+for (i in 1:768) {
+  dimi <- paste0("embed", i-1)
+  dim_name <- append(dim_name, dimi)
+}
+
+base_line[1] <- as.array(dim_name)
+colnames(base_line)[1] <- "dim"
+
+for (i in 1:20) {
+base_line_imgi <- bert_grp %>%
+  filter(img == i) %>%
+  filter((group_cond == "reapp" & subgrp == "treatment")| group_cond == "control") %>%
+  group_by(group_cond) %>%
+  summarize(across(starts_with("embed"),~mean(.x))) %>%
+  pivot_longer(-group_cond, names_to = "dim", values_to = "base_line") %>%
+  pivot_wider(values_from = base_line, names_from = group_cond, names_prefix = "base_") %>%
+  rowwise() %>%
+  mutate(base_line = base_reapp - base_control) %>%
+  ungroup()
+
+base_line[i+1] <- base_line_imgi$base_line
+}
+```
+
+# Calculate distance from reappraisal semantics
+```{r}
+
+distance <- NULL
+
+for (i in 1:20) {
+base_linei <- base_line[c(1, i+1)]
+colnames(base_linei)[2] <- "baseline"
+
+distance_imgi <- bert_grp %>%
+  filter(img == i) %>%
+    pivot_longer(starts_with("embed"), names_to = "dim", values_to = "embed_value") %>%
+    left_join(base_linei, "dim") %>%
+    group_by(group_cond, subgrp, grp_goal, grp_method, groupID, img, trial, sub_id) %>%
+    summarise(dist = 1- cosine(embed_value, baseline),
+              .groups = "drop")
+
+distance <- rbind(distance, distance_imgi)
+
+}
+
+hist(distance$dist)
+
+#distance <- distance[!duplicated(distance),]
+
+```
+
+
+# Descriptive of language change
+```{r}
+# treatment subgroups
+distance %>%
+  filter(subgrp == "treatment") %>%
+  group_by(group_cond, trial) %>%
+  summarise(avg_dist = mean(dist)) %>%
+  ggplot(aes(x = trial, y = avg_dist, color = group_cond)) +
+  geom_point() +
+  geom_smooth(se = F) + 
+  theme_classic()
+
+
+distance %>%
+  filter(subgrp == "treatment") %>%
+  ggplot(aes(group_cond, dist, fill = group_cond)) +
+  geom_violin(alpha = 0.6) + 
+  geom_boxplot(width = 0.2, alpha = 0.75) +
+  stat_summary(fun=mean, geom='point', shape=20, color = "red3", size = 3)
+  
+
+# control subgroups
+distance %>%
+  filter(subgrp == "control") %>%
+  group_by(group_cond, trial) %>%
+  summarise(avg_dist = mean(dist)) %>%
+  ggplot(aes(x = trial, y = avg_dist, color = group_cond)) +
+  #geom_line()+
+  geom_smooth(se = F) + 
+  theme_classic()
+
+distance %>%
+  filter(subgrp == "control") %>%
+  ggplot(aes(group_cond, dist, fill = group_cond)) +
+  geom_violin(alpha = 0.6) + 
+  geom_boxplot(width = 0.2, alpha = 0.75) +
+  stat_summary(fun=mean, geom='point', shape=20, color = "red", size = 3)
+  
+distance %>%
+  ggplot(aes(subgrp, dist, fill = subgrp)) +
+  geom_violin(alpha = 0.6) + 
+  geom_boxplot(width = 0.2, alpha = 0.75) +
+  stat_summary(fun=mean, geom='point', shape=20, color = "red", size = 3) +
+  facet_grid(cols = vars(group_cond))
+
+```
+
+# Quant analysis
+```{r}
+# Treatment subgroup
+distance$grp_goal <- relevel(as.factor(distance$grp_goal), ref = "non_motivated")
+distance$group_cond <- relevel(as.factor(distance$group_cond), ref = "target")
+
+lmm_dist_t <- lmer(dist ~ group_cond + trial + (1|img) + (1|groupID/sub_id), 
+             distance %>% filter(subgrp == "treatment"))
+summary(lmm_dist_t)
+
+lmm_dist_t <- lmer(dist ~ grp_goal + grp_method + trial + (1|img) + (1|groupID/sub_id), 
+             distance %>% filter(subgrp == "treatment"))
+summary(lmm_dist_t)
+
+
+
+lmm_dist_c <- lmer(dist ~ grp_goal + grp_method + trial + (1|img) + (1|groupID/sub_id), 
+             distance %>% filter(subgrp == "control"))
+summary(lmm_dist_c)
+
+lmm_dist_c <- lmer(dist ~ grp_goal * grp_method + trial + (1|img) + (1|groupID/sub_id), 
+             distance %>% filter(subgrp == "control"))
+summary(lmm_dist_c)
+
+
+
+summary(lmer(dist ~ grp_goal*grp_method*trial + (1|img) + (1|groupID/sub_id), 
+             distance %>% filter(subgrp == "control"))) # ns
+
+summary(lmer(dist ~ (grp_goal + grp_method) * trial + (1|img) + (1|groupID/sub_id), 
+             distance %>% filter(subgrp == "treatment"))) #ns
+
+```
+
+# Binary trial anaylsi
+```{r}
+distance$trial_int = as.integer(distance$trial)
+distance$trial_binary = ifelse(distance$trial_int<11,"first_half","second_half")
+
+summary(lmer(dist ~ grp_goal*grp_method*trial_binary + (1|img) + (1|groupID/sub_id), 
+             distance %>% filter(subgrp == "control"))) # ns
+
+summary(lmer(dist ~ group_cond*trial_binary + (1|img) + (1|groupID/sub_id), 
+             distance %>% filter(subgrp == "control"))) # ns
+
+summary(lmer(dist ~ (grp_goal + grp_method) * trial_binary + (1|img) + (1|groupID/sub_id), 
+             distance %>% filter(subgrp == "treatment"))) #ns
+
+summary(lmer(dist ~ group_cond * trial_binary + (1|img) + (1|groupID/sub_id), 
+             distance %>% filter(subgrp == "treatment"))) #ns
+
+```
+
+# Similarity between the control and treatment subgroup
+```{r}
+# Randomly pick half of the control condition observations
+bert_grp$control_rand <- NA
+
+bert_grp <- bert_grp %>%
+  group_by(group_cond, trial, subgrp) %>%
+  mutate(control_rand = ifelse(group_cond == "control", ifelse(row_number() <= n() / 2, "group1", "group2"), NA)) %>%
+  ungroup()
+
+bert_grp %>% 
+  filter(group_cond == "control" & subgrp == "control") %>% 
+  count(control_rand) # looks good
+
+
+# Calculate the average embedding of each condition and trial
+treat_bert <- bert_grp %>%
+  filter(subgrp == "treatment" | control_rand == "group1") %>%
+  group_by(group_cond, trial) %>%
+  summarize(across(starts_with("embed"),~mean(.x))) %>%
+  pivot_longer(starts_with("embed"), names_to = "dim", values_to = "treat_bert")
+
+table(treat_bert$group_cond)
+  
+control_bert <- bert_grp %>%
+  filter(subgrp == "control"| control_rand == "group2") %>%
+  group_by(group_cond, trial) %>%
+  summarize(across(starts_with("embed"),~mean(.x))) %>%
+  pivot_longer(starts_with("embed"), names_to = "dim", values_to = "control_bert")
+
+treat_cont_bert <- inner_join(treat_bert, control_bert, by = c("group_cond", "trial", "dim"))
+
+treat_cont_dist <- treat_cont_bert %>%    
+  group_by(group_cond, trial) %>%
+  summarise(dist = 1- cosine(treat_bert, control_bert), .groups = "drop")
+  
+
+```
+```{r}
+ggplot(data = treat_cont_dist, aes(x = trial, y = dist, color = group_cond)) +
+  geom_point() + 
+  geom_smooth(method = "lm",se = F)
+
+summary(lm(dist ~ group_cond + trial, treat_cont_dist))
+
+```
+
+
+
+# Concat texts at individual level
+
+```{r}
+bert_concat_data <- read_csv("../Data/concat_embed_dat.csv")
+
+
+# Calculate reappraisal baseline
+base_line <- bert_concat_data %>%
+  filter((group_cond == "reapp" & subgrp == "treatment") | group_cond == "control") %>%
+ # mutate(group_cond = replace(group_cond, group_cond == "reapp_target", "reapp")) %>%
+  group_by(group_cond) %>%
+  summarize(across(starts_with("embed"),~mean(.x))) %>%
+  pivot_longer(-group_cond, names_to = "dim", values_to = "base_line") %>%
+  pivot_wider(values_from = base_line, names_from = group_cond, names_prefix = "base_") %>%
+  rowwise() %>%
+  mutate(base_line = base_reapp - base_control) %>%
+  ungroup()
+
+
+distance_con <- bert_concat_data %>%
+  pivot_longer(starts_with("embed"), names_to = "dim", values_to = "embed_value") %>%
+    left_join(base_line, "dim") %>%
+    group_by(group_cond, subgrp, grp_goal, grp_method, groupID, sub_id) %>%
+    summarise(dist = 1- cosine(embed_value, base_line),
+              .groups = "drop")
+```
+
+
+```{r}
+hist(distance_con$dist)
+
+# treatment subgroups
+
+distance_con %>%
+  filter(subgrp == "treatment") %>%
+  ggplot(aes(group_cond, dist, fill = group_cond)) +
+  geom_violin(alpha = 0.6) + 
+  geom_boxplot(width = 0.2, alpha = 0.75) +
+  stat_summary(fun=mean, geom='point', shape=20, color = "red3", size = 3)
+
+# control subgroups
+
+distance_con %>%
+  filter(subgrp == "control") %>%
+  ggplot(aes(group_cond, dist, fill = group_cond)) +
+  geom_violin(alpha = 0.6) + 
+  geom_boxplot(width = 0.2, alpha = 0.75) +
+  stat_summary(fun=mean, geom='point', shape=20, color = "red3", size = 3)
+
+distance_con %>%
+  ggplot(aes(subgrp, dist, fill = subgrp)) +
+  geom_violin(alpha = 0.6) + 
+  geom_boxplot(width = 0.2, alpha = 0.75) +
+  stat_summary(fun=mean, geom='point', shape=20, color = "red3", size = 3) +
+  facet_grid(cols = vars(group_cond))
+
+```
+```{r}
+
+
+lmm_dist_c <- lmer(dist ~ grp_goal*grp_method + (1|groupID), 
+             distance_con %>% filter(subgrp == "control"))
+summary(lmm_dist_c)
+plot_model(lmm_dist_c, "int")
+
+
+lmm_dist_t <- lmer(dist ~ grp_goal + grp_method + (1|groupID), 
+             distance_con %>% filter(subgrp == "treatment"))
+summary(lmm_dist_t)
+
+
+```
+
+# Variance within group change with trials
+```{r}
+group_emo_sd <- emoreg_dat %>%
+  group_by(groupID, trial, grp_method, grp_goal, subgrp) %>%
+  summarise(group_emotion_sd = sd(rate, na.rm = T))
+
+# Pool all conditions together
+group_sd_fit <- lmer(group_emotion_sd ~ trial + (1|groupID), group_emo_sd)
+summary(group_sd_fit)
+plot_model(group_sd_fit, "pred")
+
+# Control for conditions
+group_sd_fit2 <- lmer(group_emotion_sd ~ trial + grp_method + grp_goal + subgrp + (1|groupID), group_emo_sd)
+summary(group_sd_fit2)
+plot_model(group_sd_fit2, "pred", terms = "trial")
+
+# interaction effects of conditions
+group_sd_fit3 <- lmer(group_emotion_sd ~ trial*grp_method*grp_goal + subgrp + (1|groupID), group_emo_sd)
+summary(group_sd_fit3)
+plot_model(group_sd_fit3, "int", terms = c("trial", "grp_method"))
+
+emmeans(group_sd_fit3)
+
+```
+
+
+# Spillover effects of reappraisal by goal conditions
+```{r}
+
+# Without motivation
+lmm_treat_nonmoti <- lmer(rate ~ grp_method + size + trial + (1|img) +(1|groupID/sub_id), 
+                          emoreg_data_treat %>% filter(grp_goal == "non_motivated"))
+summary(lmm_treat_nonmoti)
+treat_nonmoti_eff <- fixef(lmm_treat_nonmoti)["grp_methodreappraisal"]
+
+lmm_control_nonmoti <- lmer(rate ~ grp_method + size + trial + (1|img) + (1|groupID/sub_id), 
+                          emoreg_data_cont %>% filter(grp_goal == "non_motivated"))
+summary(lmm_control_nonmoti)
+control_nonmoti_eff <- fixef(lmm_control_nonmoti)["grp_methodreappraisal"]
+
+nonmoti_spill <- control_nonmoti_eff/treat_nonmoti_eff 
+print(paste0("Non-Motivated: Spillover = ", round(nonmoti_spill*100, 2), "%"))
+
+# Without motivation
+lmm_treat_moti <- lmer(rate ~ grp_method + size + trial + (1|img) + (1|groupID/sub_id), 
+                          emoreg_data_treat %>% filter(grp_goal == "motivated"))
+summary(lmm_treat_moti)
+treat_nonmoti_eff <- fixef(lmm_treat_moti)["grp_methodreappraisal"]
+
+lmm_control_moti <- lmer(rate ~ grp_method + size + trial + (1|img) + (1|groupID/sub_id), 
+                          emoreg_data_cont %>% filter(grp_goal == "motivated"))
+summary(lmm_control_moti)
+control_nonmoti_eff <- fixef(lmm_control_moti)["grp_methodreappraisal"]
+
+moti_spill <- control_nonmoti_eff/treat_nonmoti_eff 
+print(paste0("Motivated: Spillover = ", round(moti_spill*100, 2), "%"))
+
+
+
+
+
+```
+
+# Spillover effects of all interventions
+```{r}
+
+lmm_treat_allcond <- lmer(rate ~ group_cond + size + trial + (1|img) +(1|groupID/sub_id), 
+                          emoreg_data_treat)
+#summary(lmm_treat_allcond)
+
+lmm_cont_allcond <- lmer(rate ~ group_cond + size + trial + (1|img) +(1|groupID/sub_id), 
+                          emoreg_data_cont)
+#summary(lmm_cont_allcond)
+
+
+goal_spill <- fixef(lmm_cont_allcond)["group_condmotivation"]/fixef(lmm_treat_allcond)["group_condmotivation"]
+reapp_spill <- fixef(lmm_cont_allcond)["group_condreappraisal"]/fixef(lmm_treat_allcond)["group_condreappraisal"]
+goal_reapp_spill <- fixef(lmm_cont_allcond)["group_condreappraisal & motivation"]/fixef(lmm_treat_allcond)["group_condreappraisal & motivation"]
+
+
+print(goal_spill)
+print(reapp_spill)
+print(goal_reapp_spill)
+
+
+```
+
+
+# Output first and second trial of data for qualitative analysis
+```{r}
+text_trial1_2 <- emoreg_dat %>%
+  filter(trial == 1 | trial == 2) %>%
+  select(sub_id, trial, group_cond, txt, rate) %>%
+  arrange(trial, group_cond)
+
+text_solo_trial1_2 <- solo_dat %>%
+  filter(trial == 1 | trial == 2) %>%
+  select(sub_id, trial, group_cond, txt, rate) %>%
+  arrange(trial, group_cond)
+
+xlsx::write.xlsx(text_trial1_2, "../qualitative/first2trial.xlsx")
+xlsx::write.xlsx(text_solo_trial1_2, "../qualitative/first2trial_solo.xlsx")
+
+
+
+```
+
+
+
+
+# Find the representative groups in each condition for the next study
+## The first appraoch is to look at the average emotions of the WHOLE group
+```{r}
+# Calculate group means and grand means by conditions
+group_mean <- emoreg_dat %>%
+  group_by(group_cond, ind_cond, groupID) %>% # By ind_cond, I separately compare controls and regulators
+  summarize(group_mean = mean(rate, na.rm = T))
+
+condition_mean <- emoreg_dat %>%
+  group_by(group_cond, ind_cond) %>%
+  summarize(cond_mean = mean(rate, na.rm = T))
+
+group_cond_mean <- group_mean %>%
+  left_join(condition_mean, by = c("group_cond", "ind_cond"))
+
+# Distance between group mean and grand mean by conditions
+closest_groups <- group_cond_mean %>%
+  mutate(diff = abs(group_mean - cond_mean)) %>%
+  group_by(group_cond, ind_cond) %>%
+  slice_min(diff, n = 5) %>%
+  filter(ind_cond == "control") %>% # I chose to extract the closest control subgroup
+  pull(groupID)
+  
+
+# Extract the comment and ratings from the closest control subgroups (and their regulators)
+closest_group_data <- emoreg_dat %>%
+  filter(groupID %in% closest_groups) %>%
+  select(groupID, sub_id, group_cond, ind_cond, img, rate, txt) %>%
+  arrange(img, group_cond, ind_cond, groupID, sub_id)
+  
+#write_csv(closest_group_data, "../Processing/closest_group_data.csv")
+```
+
+## The second appraoch is to only look at the regulators' emotions
+```{r}
+
+# Distance between group mean and grand mean by conditions
+closest_regs <- group_cond_mean %>%
+  mutate(diff = abs(group_mean - cond_mean)) %>%
+  group_by(group_cond, ind_cond) %>%
+  slice_min(diff, n = 4) %>%
+  filter(ind_cond != "control") %>% # In the second approach, I extracted the closest regulators only
+  pull(groupID)
+  
+
+# Extract the comment and ratings from the closest control subgroups (and their regulators)
+closest_reg_data <- emoreg_dat %>%
+  filter(groupID %in% closest_regs) %>%
+  select(groupID, sub_id, group_cond, ind_cond, img, rate, txt) %>%
+  arrange(img, group_cond, ind_cond, groupID, sub_id)
+  
+
+
+# Check distribution of controls in the selected groups
+# Descriptive of all data
+all_descriptive <- emoreg_dat %>%
+  filter(ind_cond == "control") %>%
+  group_by(group_cond) %>%
+  summarise(M_all = mean(rate, na.rm = T), SD_all = sd(rate, na.rm = T))
+
+closest_reg_data %>%
+  filter(ind_cond == "control") %>%
+  group_by(group_cond) %>%
+  summarise(M = mean(rate, na.rm = T), SD = sd(rate, na.rm = T)) %>%
+  left_join(all_descriptive, by = c("group_cond"))
+
+
+```
+
+OK...the motivation group's controls selected are not very similar to the whole sample
+I'm planning to compare and extract control and regulators separately
+
+```{r}
+# Regulators' data (we don't need the reappraisal-only condition in the exp)
+reg_data <- closest_reg_data %>% filter(ind_cond == "target"| ind_cond == "reapp_target")
+
+# Controls' data (from the non-control groups)
+closest_controls <- group_cond_mean %>%
+  mutate(diff = abs(group_mean - cond_mean)) %>%
+  group_by(group_cond, ind_cond) %>%
+  slice_min(diff, n = 2) %>%
+  filter(ind_cond == "control" & group_cond != "control" & group_cond != "reappraisal") %>%
+  pull(groupID)
+
+control_data <- emoreg_dat %>%
+  filter(groupID %in% closest_controls) %>%
+  filter(ind_cond == "control") %>%
+  select(groupID, sub_id, group_cond, ind_cond, img, rate, txt) %>%
+  arrange(img, group_cond, ind_cond, groupID, sub_id)
+
+# Combine and output
+closest_data <- rbind(reg_data, control_data)
+
+```
+
+Further looking at the data we selected
+```{r}
+### Do the regulators in the goal and goal+reappraisal conditions have similar ratings?
+reg_data %>%
+  filter(ind_cond == "reapp_target" | ind_cond == "target") %>%
+  group_by(ind_cond) %>%
+  summarise(mean(rate, na.rm = T))
+
+```
+
+
+### Transform the data into a javascript format
+```{r}
+# Create a list to store the JavaScript code
+js_code_list <- list()
+
+# Loop through each unique image
+for (img_num in unique(closest_data$img)) {
+  # Filter the dataset for the current image
+  img_data <- closest_data[closest_data$img == img_num, ]
+
+  # Create a list to store JavaScript code for the current image
+  img_js_code <- list()
+
+  # Loop through each condition for the current image
+  for (cond in unique(img_data$ind_cond)) {
+    # Filter the dataset for the current condition
+    cond_data <- img_data[img_data$ind_cond == cond, ]
+
+    # Extract comments and ratings for the current condition
+    comments <- cond_data$txt
+    ratings <- cond_data$rate
+
+    # Replace "NA" with NaN
+    ratings[is.na(ratings)] <- NaN
+    comments[is.na(comments)] <- NaN
+
+    # Create JavaScript code for the current condition
+    js_code <- sprintf('%s: {\n  comments: %s,\n  ratings: %s\n}', cond, toJSON(comments), toJSON(ratings))
+    img_js_code <- c(img_js_code, js_code)
+  }
+
+  # Combine JavaScript code for all conditions for the current image
+  img_js_code_str <- paste(img_js_code, collapse = ',\n\n  ')
+
+  # Create JavaScript code for the current image
+  img_code <- sprintf('{\n  picture: \'img/stimuli/IAPS/%s.JPG\',\n  %s\n}', img_num, img_js_code_str)
+  js_code_list <- c(js_code_list, img_code)
+  
+  # Add a blank line between data for two pictures
+  js_code_list <- c(js_code_list, '')
+}
+
+# Combine JavaScript code for all images
+final_js_code <- paste(js_code_list, collapse = ',\n\n')
+
+# Wrap the JavaScript code in the desired format
+final_js_code <- sprintf('{\n%s\n}', final_js_code)
+
+# Remove quotation marks from condition names
+final_js_code <- gsub('"(.*?)"(?=:)', '\\1', final_js_code, perl = TRUE)
+
+# Print the final JavaScript code
+cat(final_js_code)
+
+# Save the JavaScript code to a text file
+writeLines(final_js_code, "../Processing/jspsych_responses_repo.txt")
+
+```
+
+# Power analysis for follow-up studies
+```{r}
+# Use all motivation (with & without reapp) groups to calculate the effect size
+power_analysis_data <- emoreg_dat %>% 
+  filter(subgrp == "control") %>% 
+  filter(group_cond %in% c("reappraisal & motivation", "motivation", "control")) %>% 
+  mutate(treatment = case_when(group_cond %in% c("reappraisal & motivation", "motivation") ~ "treat",
+                               group_cond == "control" ~ "control"))
+lmm_cont_reapp <- lmer(rate ~ treatment + size + trial + (1|img) + (1|groupID/sub_id), power_analysis_data)
+
+summary(lmm_cont_reapp)
+
+fixed_effects <- fixef(lmm_cont_reapp)
+effect_size <- fixed_effects["treatmenttreat"]
+
+library(pwr)
+
+# Specify parameters for power analysis
+alpha <- 0.05  # significance level
+power <- 0.80  # desired power
+
+# Conduct power analysis for a linear mixed model
+pwr.t.test(d = effect_size, sig.level = alpha, power = power, type = "two.sample")
+
+
+# How many regulators do we have in each group (which could influence the effect size)?
+power_analysis_data %>% 
+  filter(treat_size != -1) %>% 
+  summarise(mean(treat_size))
+
+```
+
+
+
+
+
+
+
+# GPT labeling
+## Sample by image id
+- I looked at the first 10 responses for each picture and picked some as examples for GPT
+- First, I will look at agreement at the first 200
+- Then, I will test the agreement on the first 201-300
+```{r}
+gpt_agreement_byimg <- emoreg_dat %>%
+  arrange(sub_id) %>%
+  group_by(img) %>%
+  slice_head(n = 10) %>%
+  ungroup() %>%
+  dplyr::select(sub_id, trial, group_cond, txt, img)
+  
+write_csv(gpt_agreement_byimg, "GPT classification/agreement_byimg.csv")
+
+gpt_agreement_byimg201_300 <- emoreg_dat %>%
+  arrange(sub_id) %>%
+  group_by(img) %>%
+  slice(11:15) %>%
+  ungroup() %>%
+  dplyr::select(sub_id, trial, group_cond, txt, img)
+
+write_csv(gpt_agreement_byimg201_300, "GPT classification/agreement_byimg201_300.csv")
+
+
+```
+
+## agreement in the first 200 (by image coding)
+```{r}
+path <- "GPT classification/agreement_byimg_human_gpt.xlsx"  # adjust path if needed
+df <- readxl::read_excel(path) 
+
+# Expecting columns: sub_id, trial, txt, human_label, gpt_label
+# human_label is coded 0/1 (0 = Non-reappraisal, 1 = Reappraisal) per your note.
+
+# ---- Normalize/clean labels ----
+# Convert gpt_label to numeric 0/1 even if it is text like "Reappraisal" / "Non-reappraisal"
+df_clean <- df %>%
+  mutate(
+    human = as.integer(human_label),
+
+    # First attempt numeric coercion (e.g., if it's already 0/1)
+    gpt_num = suppressWarnings(as.integer(gpt_label)),
+
+    # If NA, map from strings
+    gpt_num = ifelse(
+      is.na(gpt_num),
+      case_when(
+        str_to_lower(str_trim(gpt_label)) %in% c("reappraisal","1","yes","true") ~ 1L,
+        str_to_lower(str_trim(gpt_label)) %in% c("non-reappraisal","nonreappraisal","0","no","false") ~ 0L,
+        TRUE ~ NA_integer_
+      ),
+      gpt_num
+    )
+  ) %>%
+  # Keep only rows with both ratings present
+  filter(!is.na(human) & !is.na(gpt_num)) %>%
+  mutate(
+    human_f = factor(human, levels = c(0,1), labels = c("Non-reappraisal","Reappraisal")),
+    gpt_f   = factor(gpt_num, levels = c(0,1), labels = c("Non-reappraisal","Reappraisal"))
+  )
+
+cat("\n=== Confusion matrix (human rows x GPT columns) ===\n")
+print(table(df_clean$human_f, df_clean$gpt_f))
+
+f1 <- yardstick::f_meas(df_clean, truth = human_f, estimate = gpt_f, event_level = "second")
+print(f1)
+
+n <- nrow(df_clean)
+agree_n <- sum(df_clean$human_f == df_clean$gpt_f)
+accuracy <- agree_n / n
+cat(sprintf("\nPercent agreement (accuracy): %.2f%%  (n=%d)\n", 100*accuracy, n))
+
+kap_ys <- yardstick::kap(df_clean, truth = human_f, estimate = gpt_f)
+cat(sprintf("\nCohen's kappa (yardstick): %.3f\n", kap_ys$.estimate))
+
+kap_irr <- irr::kappa2(df_clean[,c("human_f","gpt_f")], weight = "unweighted")
+cat("Cohen's kappa (irr::kappa2):\n")
+print(kap_irr)
+```
+
+
+
+## agreement in the 201-300 (by image coding)
+- OK great we have a f1 score = 0.79 and kappa = 0.73
+```{r}
+path2 <- "GPT classification/agreement_byimg_human_gpt201_300.xlsx"  # adjust path if needed
+df2 <- readxl::read_excel(path2) 
+
+# Expecting columns: sub_id, trial, txt, human_label, gpt_label
+# human_label is coded 0/1 (0 = Non-reappraisal, 1 = Reappraisal) per your note.
+
+# ---- Normalize/clean labels ----
+# Convert gpt_label to numeric 0/1 even if it is text like "Reappraisal" / "Non-reappraisal"
+df2_clean <- df2 %>%
+  mutate(
+    human = as.integer(human_label),
+
+    # First attempt numeric coercion (e.g., if it's already 0/1)
+    gpt_num = suppressWarnings(as.integer(gpt_label)),
+
+    # If NA, map from strings
+    gpt_num = ifelse(
+      is.na(gpt_num),
+      case_when(
+        str_to_lower(str_trim(gpt_label)) %in% c("reappraisal","1","yes","true") ~ 1L,
+        str_to_lower(str_trim(gpt_label)) %in% c("non-reappraisal","nonreappraisal","0","no","false") ~ 0L,
+        TRUE ~ NA_integer_
+      ),
+      gpt_num
+    )
+  ) %>%
+  # Keep only rows with both ratings present
+  filter(!is.na(human) & !is.na(gpt_num)) %>%
+  mutate(
+    human_f = factor(human, levels = c(0,1), labels = c("Non-reappraisal","Reappraisal")),
+    gpt_f   = factor(gpt_num, levels = c(0,1), labels = c("Non-reappraisal","Reappraisal"))
+  )
+
+cat("\n=== Confusion matrix (human rows x GPT columns) ===\n")
+print(table(df2_clean$human_f, df2_clean$gpt_f))
+
+f1 <- yardstick::f_meas(df2_clean, truth = human_f, estimate = gpt_f, event_level = "second")
+print(f1)
+
+n <- nrow(df2_clean)
+agree_n <- sum(df2_clean$human_f == df2_clean$gpt_f)
+accuracy <- agree_n / n
+cat(sprintf("\nPercent agreement (accuracy): %.2f%%  (n=%d)\n", 100*accuracy, n))
+
+kap_ys <- yardstick::kap(df2_clean, truth = human_f, estimate = gpt_f)
+cat(sprintf("\nCohen's kappa (yardstick): %.3f\n", kap_ys$.estimate))
+
+```
+
+### Agreement of the all 300 rows
+```{r}
+df12 <- bind_rows(df_clean, df2_clean)
+
+
+cat("\n=== Confusion matrix (human rows x GPT columns) ===\n")
+print(table(df12$human_f, df12$gpt_f))
+
+f1 <- yardstick::f_meas(df12, truth = human_f, estimate = gpt_f, event_level = "second")
+print(f1)
+
+n <- nrow(df12)
+agree_n <- sum(df12$human_f == df12$gpt_f)
+accuracy <- agree_n / n
+cat(sprintf("\nPercent agreement (accuracy): %.2f%%  (n=%d)\n", 100*accuracy, n))
+
+kap_ys <- yardstick::kap(df12, truth = human_f, estimate = gpt_f)
+cat(sprintf("\nCohen's kappa (yardstick): %.3f\n", kap_ys$.estimate))
+
+```
+
+
+## Now we can put everything to GPT to label
+```{r}
+gpt_byimg_all <- emoreg_dat %>%
+  arrange(sub_id) %>%
+  dplyr::select(sub_id, trial, txt, img)
+
+write_csv(gpt_byimg_all, "GPT classification/gpt_byimg_all.csv")
+```
+
+### merge the gpt output with the main dataset
+```{r}
+gpt_label <- read_csv("GPT classification/label_gpt_byimg_all.csv")
+
+emoreg_dat <- gpt_label %>%
+  dplyr::select(sub_id, trial, gpt_label) %>%
+  right_join(emoreg_dat, by = c("sub_id", "trial"))
+
+
+```
+
+# Analyze the gpt reappraisal labeling data
+```{r fig.width=10, fig.height=4, dpi=300}
+# descriptive of classification results
+table(emoreg_dat$gpt_label)
+
+# treatment subgroups
+emoreg_dat <- emoreg_dat %>%
+  mutate(gpt_label_bi = case_when(
+    gpt_label == "Reappraisal" ~ 1,
+    .default = 0
+  ))
+
+cond_colors <- c(
+  "reappraisal" = "blue",
+  "reappraisal & motivation" = "purple",
+  "motivation" = "red",
+  "control" = "black"
+)
+
+p_treatment <- emoreg_dat %>%
+  filter(subgrp == "treatment" | (subgrp == "control" & group_cond == "control")) %>%
+  group_by(group_cond, trial) %>%
+  summarise(reapp_prop = mean(gpt_label_bi), .groups = "drop") %>%
+  ggplot(aes(x = trial, y = reapp_prop, color = group_cond)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = TRUE) +
+  scale_color_manual(values = cond_colors) + 
+  labs(
+    y = "Proportion of Reappraisal Responses",
+    color = "Condition",
+    title = "Treated Subgroup"
+  ) +
+  theme_classic()+
+  theme(legend.position = "none")+
+  scale_y_continuous(limits = c(0, 0.8))
+
+p_control <- emoreg_dat %>%
+  filter(subgrp == "control") %>%
+  group_by(group_cond, trial) %>%
+  summarise(reapp_prop = mean(gpt_label_bi), .groups = "drop") %>%
+  ggplot(aes(x = trial, y = reapp_prop, color = group_cond)) +
+  geom_point() +
+  geom_smooth(method = "lm",se = TRUE) +
+  scale_color_manual(values = cond_colors) +  
+  labs(
+    y = "Proportion of Reappraisal Responses",
+    color = "Condition",
+    title = "Non-treated Subgroup"
+  ) +
+  theme_classic() +
+  scale_y_continuous(limits = c(0, 0.37))
+
+
+# Combine side by side with shared legend
+library(patchwork)
+p_all <- (p_treatment | p_control) + plot_layout(guides = "collect")
+
+ggsave("../Figures/gpt-classification.png", plot = p_all, dpi = 300, width = 10, height = 4, units = "in")
+
+```
+
+# Curvilinear effect plot
+```{r}
+
+emoreg_dat %>%
+  filter(subgrp == "treatment") %>%
+  group_by(group_cond, trial) %>%
+  summarise(reapp_prop = mean(gpt_label_bi), .groups = "drop") %>%
+  ggplot(aes(x = trial, y = reapp_prop, color = group_cond)) +
+  geom_point() +
+  geom_smooth(method = lm, formula = y ~ splines::bs(x, 3), se = TRUE) +
+  scale_color_manual(values = cond_colors) + 
+  labs(
+    y = "Proportion of Reappraisal Responses",
+    color = "Condition",
+    title = "Treatment Group"
+  ) +
+  theme_classic()+
+  theme(legend.position = "none")
+
+emoreg_dat %>%
+  filter(subgrp == "control") %>%
+  group_by(group_cond, trial) %>%
+  summarise(reapp_prop = mean(gpt_label_bi), .groups = "drop") %>%
+  ggplot(aes(x = trial, y = reapp_prop, color = group_cond)) +
+  geom_point() +
+  geom_smooth(method = lm, formula = y ~ splines::bs(x, 3), se = TRUE) +
+  scale_color_manual(values = cond_colors) +  
+  labs(
+    y = "Proportion of Reappraisal Responses",
+    color = "Condition",
+    title = "Control Group"
+  ) +
+  theme_classic()
+
+```
+
+## Text-level analysis based on GPT labels
+### Treatment subgroup
+```{r}
+m1_treat <- glmer(gpt_label_bi ~ group_cond + trial +
+              (1 | sub_id) + (1 | img),
+            data = emoreg_dat %>% filter(subgrp == "treatment"), 
+            family = binomial)
+
+summary(m1_treat)
+
+
+m2_treat <- glmer(gpt_label_bi ~ grp_method*grp_goal + trial +
+              (1 | sub_id) + (1 | img),
+            data = emoreg_dat %>% filter(subgrp == "treatment" | (subgrp == "control" & group_cond == "control")), 
+            family = binomial)
+
+summary(m2_treat)
+my_summ_lm(m2_treat)
+
+
+# main effect of method -- recode motivation
+emoreg_dat$grp_goal2 <- NA
+emoreg_dat$grp_goal2[emoreg_dat$grp_goal == "motivated"] <- 0.5
+emoreg_dat$grp_goal2[emoreg_dat$grp_goal == "non_motivated"] <- -0.5
+
+
+# main effect of motivation -- recode method
+emoreg_dat$grp_method2 <- NA
+emoreg_dat$grp_method2[emoreg_dat$grp_method == "reappraisal"] <- 0.5
+emoreg_dat$grp_method2[emoreg_dat$grp_method == "observing"] <- -0.5
+
+m2_treat_main <- glmer(gpt_label_bi ~ grp_method2*grp_goal2 + trial +
+              (1 | sub_id) + (1 | img),
+            data = emoreg_dat %>% filter(subgrp == "treatment" | (subgrp == "control" & group_cond == "control")), 
+            family = binomial, control = glmerControl(optimizer = "bobyqa"))
+
+summary(m2_treat_main)
+confint(m2_treat_main)
+
+# Increase in motivation only condition's reappraisal propensity
+lm_motivation_only <- glmer(gpt_label_bi ~  trial +
+              (1 | sub_id) + (1 | img),
+            data = emoreg_dat %>% filter(subgrp == "treatment" & group_cond == "motivation"), 
+            family = binomial, control = glmerControl(optimizer = "bobyqa"))
+my_summ_lm(lm_motivation_only)
+
+```
+
+
+
+### Control subgroup using GPT Labels
+```{r}
+m1 <- glmer(gpt_label_bi ~ group_cond + trial +
+              (1 | sub_id) + (1 | img),
+            data = emoreg_dat %>% filter(subgrp == "control"), 
+            family = binomial)
+
+summary(m1)
+
+m2_control <- glmer(gpt_label_bi ~ grp_goal*grp_method + trial +
+              (1 | sub_id) + (1 | img),
+            data = emoreg_dat %>% filter(subgrp == "control"), 
+            family = binomial)
+
+my_summ_lm(m2_control)
+
+m2_control_main <- glmer(gpt_label_bi ~ grp_method2*grp_goal2 + trial +
+              (1 | sub_id) + (1 | img),
+            data = emoreg_dat %>% filter(subgrp == "control"), 
+            family = binomial, control = glmerControl(optimizer = "bobyqa"))
+
+summary(m2_control_main)
+confint(m2_control_main)
+
+
+# only looking at the first trial
+summary(glmer(gpt_label_bi ~ group_cond  +
+              (1 | sub_id) + (1 | img),
+            data = emoreg_dat %>% filter(subgrp == "control" & trial == 1), 
+            family = binomial)) # no sig difference
+
+
+# only looking at the second / third trial
+summary(glmer(gpt_label_bi ~ group_cond  +
+              (1 | sub_id) + (1 | img),
+            data = emoreg_dat %>% filter(subgrp == "control" & trial == 2), 
+            family = binomial)) 
+
+summary(glmer(gpt_label_bi ~ group_cond  +
+              (1 | sub_id) + (1 | img),
+            data = emoreg_dat %>% filter(subgrp == "control" & trial == 3), 
+            family = binomial)) 
+
+summary(glmer(gpt_label_bi ~ group_cond  +
+              (1 | sub_id) + (1 | img),
+            data = emoreg_dat %>% filter(subgrp == "control" & trial %in% c(2,3)), 
+            family = binomial)) 
+
+```
+
+
+#--------------- Archival -----------------#
+
+# Output GPT labeling  
+- I fine tuned the prompt after the first run and the second try achieved a good kappa
+- Need to further test it on additional sample
+```{r}
+# Randomly select 10 responses for GPT classifying test
+set.seed(99)
+gpt_test1 <- emoreg_dat %>%
+  slice_sample(n = 10, replace = F) %>%
+  select(sub_id, trial, group_cond, txt, rate) %>%
+  arrange(trial, group_cond)
+
+set.seed(9)
+gpt_test2 <- emoreg_dat %>%
+  slice_sample(n = 10, replace = F) %>%
+  select(sub_id, trial, group_cond, txt, rate) %>%
+  arrange(trial, group_cond)
+
+write_csv(gpt_test1, "GPT classification/test1.csv")
+write_csv(gpt_test2, "GPT classification/test2.csv")
+
+
+# Select the first 100 rows for agreement test
+gpt_agreement <- emoreg_dat[1:100,] %>%
+  select(sub_id, trial, group_cond, txt, rate) %>%
+  arrange(trial, group_cond)
+
+write_csv(gpt_agreement, "GPT classification/agreement_100.csv")
+
+
+```
+
+
+## Agreement between GPT and human
+```{r}
+# ---- Read data ----
+path <- "GPT classification/agreement_100_human_class.xlsx"  # adjust path if needed
+df <- readxl::read_excel(path) 
+
+# Expecting columns: sub_id, trial, txt, human_label, gpt_label
+# human_label is coded 0/1 (0 = Non-reappraisal, 1 = Reappraisal) per your note.
+
+# ---- Normalize/clean labels ----
+# Convert gpt_label to numeric 0/1 even if it is text like "Reappraisal" / "Non-reappraisal"
+df_clean <- df %>%
+  mutate(
+    human = as.integer(human_label),
+
+    # First attempt numeric coercion (e.g., if it's already 0/1)
+    gpt_num = suppressWarnings(as.integer(gpt_label)),
+
+    # If NA, map from strings
+    gpt_num = ifelse(
+      is.na(gpt_num),
+      case_when(
+        str_to_lower(str_trim(gpt_label)) %in% c("reappraisal","1","yes","true") ~ 1L,
+        str_to_lower(str_trim(gpt_label)) %in% c("non-reappraisal","nonreappraisal","0","no","false") ~ 0L,
+        TRUE ~ NA_integer_
+      ),
+      gpt_num
+    )
+  ) %>%
+  # Keep only rows with both ratings present
+  filter(!is.na(human) & !is.na(gpt_num)) %>%
+  mutate(
+    human_f = factor(human, levels = c(0,1), labels = c("Non-reappraisal","Reappraisal")),
+    gpt_f   = factor(gpt_num, levels = c(0,1), labels = c("Non-reappraisal","Reappraisal"))
+  )
+
+# ---- Confusion matrix ----
+cat("\n=== Confusion matrix (human rows x GPT columns) ===\n")
+print(table(df_clean$human_f, df_clean$gpt_f))
+f1 <- yardstick::f_meas(df_clean, truth = human_f, estimate = gpt_f, event_level = "second")
+print(f1)
+
+# ---- Basic agreement / accuracy ----
+n <- nrow(df_clean)
+agree_n <- sum(df_clean$human_f == df_clean$gpt_f)
+accuracy <- agree_n / n
+cat(sprintf("\nPercent agreement (accuracy): %.2f%%  (n=%d)\n", 100*accuracy, n))
+
+# ---- Cohen's Kappa (two ways) ----
+# yardstick
+kap_ys <- yardstick::kap(df_clean, truth = human_f, estimate = gpt_f)
+cat(sprintf("\nCohen's kappa (yardstick): %.3f\n", kap_ys$.estimate))
+
+kap_irr <- irr::kappa2(df_clean[,c("human_f","gpt_f")], weight = "unweighted")
+cat("Cohen's kappa (irr::kappa2):\n")
+print(kap_irr)
+```
+
+## Further testing on another 100 rows (201-300)
+- Still need a second run
+```{r}
+# Select the 101-200 rows for agreement test
+gpt_agreement2 <- emoreg_dat[101:200,] %>%
+  select(sub_id, trial, group_cond, txt, rate)
+
+write_csv(gpt_agreement2, "GPT classification/agreement_101_200.csv")
+
+# ---- Read data ----
+path2 <- "GPT classification/agreement_101_200_human.xlsx"  # adjust path if needed
+df2 <- readxl::read_excel(path2) 
+
+# Expecting columns: sub_id, trial, txt, human_label, gpt_label
+# human_label is coded 0/1 (0 = Non-reappraisal, 1 = Reappraisal) per your note.
+
+# ---- Normalize/clean labels ----
+# Convert gpt_label to numeric 0/1 even if it is text like "Reappraisal" / "Non-reappraisal"
+df2_clean <- df2 %>%
+  mutate(
+    human = as.integer(human_label),
+
+    # First attempt numeric coercion (e.g., if it's already 0/1)
+    gpt_num = suppressWarnings(as.integer(gpt_label)),
+
+    # If NA, map from strings
+    gpt_num = ifelse(
+      is.na(gpt_num),
+      case_when(
+        str_to_lower(str_trim(gpt_label)) %in% c("reappraisal","1","yes","true") ~ 1L,
+        str_to_lower(str_trim(gpt_label)) %in% c("non-reappraisal","nonreappraisal","0","no","false") ~ 0L,
+        TRUE ~ NA_integer_
+      ),
+      gpt_num
+    )
+  ) %>%
+  # Keep only rows with both ratings present
+  filter(!is.na(human) & !is.na(gpt_num)) %>%
+  mutate(
+    human_f = factor(human, levels = c(0,1), labels = c("Non-reappraisal","Reappraisal")),
+    gpt_f   = factor(gpt_num, levels = c(0,1), labels = c("Non-reappraisal","Reappraisal"))
+  )
+
+cat("\n=== Confusion matrix (human rows x GPT columns) ===\n")
+print(table(df2_clean$human_f, df2_clean$gpt_f))
+
+f1 <- yardstick::f_meas(df2_clean, truth = human_f, estimate = gpt_f, event_level = "second")
+print(f1)
+
+n <- nrow(df2_clean)
+agree_n <- sum(df2_clean$human_f == df2_clean$gpt_f)
+accuracy <- agree_n / n
+cat(sprintf("\nPercent agreement (accuracy): %.2f%%  (n=%d)\n", 100*accuracy, n))
+
+kap_ys <- yardstick::kap(df2_clean, truth = human_f, estimate = gpt_f)
+cat(sprintf("\nCohen's kappa (yardstick): %.3f\n", kap_ys$.estimate))
+
+kap_irr <- irr::kappa2(df2_clean[,c("human_f","gpt_f")], weight = "unweighted")
+cat("Cohen's kappa (irr::kappa2):\n")
+print(kap_irr)
+```
+
+### Further testing on another 100 rows (201-300)
+```{r}
+# Select the 201-300 rows for agreement test
+gpt_agreement3 <- emoreg_dat[201:300,] %>%
+  select(sub_id, trial, group_cond, txt, rate)
+
+write_csv(gpt_agreement3, "GPT classification/agreement_201_300.csv")
+
+# ---- Read data ----
+path3 <- "GPT classification/agreement_201_300_human.xlsx"  # adjust path if needed
+df3 <- readxl::read_excel(path3) 
+
+# Expecting columns: sub_id, trial, txt, human_label, gpt_label
+# human_label is coded 0/1 (0 = Non-reappraisal, 1 = Reappraisal) per your note.
+
+# ---- Normalize/clean labels ----
+# Convert gpt_label to numeric 0/1 even if it is text like "Reappraisal" / "Non-reappraisal"
+df3_clean <- df3 %>%
+  mutate(
+    human = as.integer(human_label),
+
+    # First attempt numeric coercion (e.g., if it's already 0/1)
+    gpt_num = suppressWarnings(as.integer(gpt_label)),
+
+    # If NA, map from strings
+    gpt_num = ifelse(
+      is.na(gpt_num),
+      case_when(
+        str_to_lower(str_trim(gpt_label)) %in% c("reappraisal","1","yes","true") ~ 1L,
+        str_to_lower(str_trim(gpt_label)) %in% c("non-reappraisal","nonreappraisal","0","no","false") ~ 0L,
+        TRUE ~ NA_integer_
+      ),
+      gpt_num
+    )
+  ) %>%
+  # Keep only rows with both ratings present
+  filter(!is.na(human) & !is.na(gpt_num)) %>%
+  mutate(
+    human_f = factor(human, levels = c(0,1), labels = c("Non-reappraisal","Reappraisal")),
+    gpt_f   = factor(gpt_num, levels = c(0,1), labels = c("Non-reappraisal","Reappraisal"))
+  )
+
+cat("\n=== Confusion matrix (human rows x GPT columns) ===\n")
+print(table(df3_clean$human_f, df3_clean$gpt_f))
+
+f1 <- yardstick::f_meas(df3_clean, truth = human_f, estimate = gpt_f, event_level = "second")
+print(f1)
+
+n <- nrow(df2_clean)
+agree_n <- sum(df2_clean$human_f == df2_clean$gpt_f)
+accuracy <- agree_n / n
+cat(sprintf("\nPercent agreement (accuracy): %.2f%%  (n=%d)\n", 100*accuracy, n))
+
+kap_ys <- yardstick::kap(df2_clean, truth = human_f, estimate = gpt_f)
+cat(sprintf("\nCohen's kappa (yardstick): %.3f\n", kap_ys$.estimate))
+
+kap_irr <- irr::kappa2(df2_clean[,c("human_f","gpt_f")], weight = "unweighted")
+cat("Cohen's kappa (irr::kappa2):\n")
+print(kap_irr)
+```
+
+
+
+
+

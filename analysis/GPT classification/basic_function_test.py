@@ -1,0 +1,95 @@
+from pathlib import Path
+import zipfile
+import numpy as np
+import pandas as pd
+import textwrap
+import os
+from langchain_openai import ChatOpenAI
+from openai import OpenAI
+
+
+api_key = "xxx"
+
+client = OpenAI(api_key=api_key)
+
+
+# Set the directory path
+# folder_path = Path(r'')
+
+## now handle the differen types of USE
+dc = pd.read_csv("test2.csv")
+
+## define prompt
+codebook_type_of_use = {
+  "M1":{
+      "label": "Reappraisal",
+      "description": "Cognitive reappraisal involves changing how one thinks about or interprets the situation in the picture with the goal to change one's emotions.",
+      "examples": [
+        "Maybe the bandages are showing that the child is totally healed",
+        "Looks like she made it out alive",
+        "This injured person has found help.",
+        "These toy guns look pretty real nowadays",
+        "This man looks like a good actor, I am interested in seeing this movie."
+      ]
+    },
+  "M2":{
+      "label": "Non-reappraisal",
+      "description": "All other texts that do not show a change in how one interprets a situation to change one's emotions.",
+      "examples": [
+        "Oh my this looks terribly painful.",
+        "Scarey, I hope I never face that image",
+        "I feel sadness that he either witnessed or just went through something traumatic.",
+        "This seems like a war injury, from an explosion. I feel a loss for this child's childhood. So tragic.",
+        "The person needs help. They are on drugs."
+      ]
+    },
+ #....
+}
+
+def _get_prompt_classify_motivation(theme_codebook, text):
+    prompt_21 = textwrap.dedent(f"""\
+You are a research assistant helping with a thematic analysis of survey responses. 
+We want to classify whether people are using an emotion regulation stratgy called reappraisal or not in their text responses to stimuli.
+The stimuli are pictures that are designed to trigger intense negative emotions, which contain scenarios like domestic violence, street crime, murders, car accident, gun shot, fire accident, etc.
+Participants in the experimental condition were taught cognitive reappraisal and asked to use reappraisal to reduce negative emotions triggered by the photos.
+Participants in the contronl condition were asked to observe the natural emotional feelings after viewing the stimuli. 
+All participants wrote down their feelings following the experimental or control instructions after viewing each picture.
+
+You are given:
+1. A codebook of categories (with labels, descriptions, and examples).
+2. A short text response from a participant describing their feeling.
+
+Your task:
+- Read the participant response carefully.
+- Assign either Reappraisal or Non-reappraisal label to the text from the codebook according to the definiiton. 
+- For the output: return only the category label (must be "Reappraisal" or "Non-reappraisal").  
+- Do not include explanations, formatting, or text other than the label(s).
+
+Codebook:
+{theme_codebook}
+
+Survey response:
+"{text}"
+
+Now please output the assigned label(s):
+""")
+
+    return prompt_21
+
+
+
+
+prompt = _get_prompt_classify_motivation(theme_codebook = codebook_type_of_use, text="I think they all survived the accident.")
+response = client.chat.completions.create(
+    model="gpt-4o-mini",  # Or your preferred model
+    messages=[
+        {"role": "user", "content": prompt}
+    ],
+    max_tokens=150,
+    temperature=0,
+)
+label = response.choices[0].message.content.strip()
+
+print(label)
+
+
