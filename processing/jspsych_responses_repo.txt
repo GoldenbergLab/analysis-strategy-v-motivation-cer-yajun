@@ -1,0 +1,401 @@
+{
+{
+  picture: 'img/stimuli/IAPS/1.JPG',
+  reapp_target: {
+  comments: ["baby getting their first bath","A tiny baby has good lungs thankfullly and good medical care.","This baby doesn't seem to be in distress but just born. With this world, I would be scre","New life is wonderful. A baby is being born and is loved.","Aw a brand new baby! I hope it's ok but it looks adorable","This poor child looks like they were born as a premature baby. I do have hope that it will","I am so glad they are taking good care and bathing this premature born baby.  This baby will live a long and prosperous","The baby looks to be fighting to survive."],
+  ratings: [4,2,2,3,3,6,3,1]
+}
+
+  target: {
+  comments: ["A newborn baby something seems wrong","How wseet, baby's bath.  Sweet preemiw","It is cool what modern technology can do without it this kid would","wow birth is amazing","Baby having a bath so sweet","Guess it's time to wash the premature baby.","wish you a healthy life boy.","How precious this is; tiny little guy, looks like a premie --- getting cleaned in a bowl","This preemie baby is getting a bath. Adorable."],
+  ratings: [1,1,6,2,2,1,4,1,2]
+}
+
+  control: {
+  comments: ["Oh poor baby. He looks so small.","Kind of gross, but it's welcoming new life into the world, so always joyous.","A premature infant getting mcare.","The baby is in distress, but i think they are trying to save its life.","A baby is getting one of it's first bathes. It looks tired yawning","A very tiny baby getting a bath. A fighter.","this is kind of hard to look at and makes me kind of grossed out and disgusted"],
+  ratings: [2,2,4,2,1,3,5]
+}
+},
+
+,
+
+{
+  picture: 'img/stimuli/IAPS/2.JPG',
+  reapp_target: {
+  comments: ["this guy is thinking about giving up drugs","hes getting his insulin injection","He may have decided to finally get help for his drug problem,","This makes me sad for the man at first, but he may be self-medicati","SO much help is available for addiction. I hope he sees hope","he looks like he needs help. hopefully he can find a rehab.","This person has not overdosed. They are ge","This man is taking a much needed nap after working hard all day.  He is taking his diabetes medicine.","This person has long since recovered from the time this pix"],
+  ratings: [6,7,4,5,5,5,5,3,1]
+}
+
+  target: {
+  comments: ["Herion user Junkie","Sad the way drugs destroy lives and families.","This guy is living is own life and he feels great. Plus, there are no taxes to pay","I hope this gentleman gets help he needs","Sad that he resorted to using drugs, so many other options","At least he's inside?  I guess.","oh. the man got tired. take rest","He found a place to shoot-up and get high; I wonder where he is, what room hs is in","This is a scene from a prevention ad. It is not a real scenario."],
+  ratings: [10,5,5,4,3,2,2,6,"NaN"]
+}
+
+  control: {
+  comments: ["This man looks like he is suffering an addiction. He needs help.","Compassion...looks like a man who is struggling with addiction.","I think he is a prison and I felt sad for his.","Heroin addict, he will most likely die from his addiction.","Heroin and tranq and fentanyl are destroying our nation - person by person. Very sad to","The man is hooked on drugs and it's sad to see what a waste of life","Sad. A junkie. Painful.","a junkie getting his fix, a sad but not suprising sight for the most pa"],
+  ratings: [4,6,9,7,7,10,6,6]
+}
+},
+
+,
+
+{
+  picture: 'img/stimuli/IAPS/3.JPG',
+  reapp_target: {
+  comments: ["he is excited at a concert","seems that he might be in some type of","The man is practicing primal thj","This image seems like art or done on purpose. I do not feel any emotions or sad feelings.","this could be a joyful moment. The person is breaking down barriers in their life.","Hopefully these are screams of joy. They don't look distressed.","This is a music video that makes you feel trippy.","This is a movie scene.  It is an actor screaming in a fantasy movie scene.","This is a movie of a man before getting superpowers."],
+  ratings: [4,2,2,1,3,2,1,2,1]
+}
+
+  target: {
+  comments: ["looks like a movie going it dim","Looks like a movie screen shot, sci fi?","This guy is seeing God's love. he is holy","Very cool picture. Wild lighting.","Someone stuck and yelling hopefully in joy","Stock photo? Kinda artsy I guess.","A man in a bubble. And get fun in the amusement park","i THINK HE IS IN BAD MOOD","Are we just playing around or is this girl in trouble ???? She is making faces outside of th","This is definitely a scene from a music video or tv show."],
+  ratings: [1,1,7,2,2,1,5,9,5,4]
+}
+
+  control: {
+  comments: ["This has to be a scene from a movie. it looks fake.","Horror, someone is clearly doing everything they can to escape a situation.","A person who is terrified and screaming for help and trapped.","Im not sure what is going on here. Possibly a stunt. Confused.","I feel pain the man feels as he yells for help.","Seems very upset, screaming","this one  is kind of weird looking but the guy looks to be in pain"],
+  ratings: [3,"NaN",7,4,2,2,4]
+}
+},
+
+,
+
+{
+  picture: 'img/stimuli/IAPS/4.JPG',
+  reapp_target: {
+  comments: ["he has just seen his son after many years","this man has just had his cataract surgery. looks like a success","The before picture of a patient who recieves treatment and made the condition much better.","The image makes me slightly sad for the old man's health condition.","he couls be getting treatment. Or have had a surgery.","He looks sad and in pain. Hopefully it's an easy fix.","This person is currently under the supervision of a doctor, who is going to help make them better.","This person will recover from an allergic reaction to their eyes. It was temporay and m","This person is"],
+  ratings: [2,5,2,3,4,3,4,4,5]
+}
+
+  target: {
+  comments: ["It looks like an eye disease","Eye surgery post op, plastic surgery I suspect.  Looking good.","This guy has an infection that the doctors can clear","This man looks sad and upset I feel bad for him","An older person crying but we dont know why???","Well that's an extreme closeup.","A man injured in eye. This pic is like punch has given by someone in","I thing the person have a deep pain.","I hate to see tears in anyones' eyes; there is enough sadness on this earth already.  NOT fun to look at.","This woman has terrible allergies. She is not sa"],
+  ratings: [5,1,7,4,3,2,10,"NaN",2,3]
+}
+
+  control: {
+  comments: ["This person must be in pain from their eye issues. feel bad","Looks like life experience in the eyes of someone suffering.","A man with a rare medical condition.","This looks like a person that has seen to many painful images. Very sad.","The elderly lady is sad and tired","Looks painful, closeup on the eyes. This person is suffering.","this looks kind of disgusting and the guy looks like he was exposed to something so it grosses"],
+  ratings: [6,4,4,7,4,8,5]
+}
+},
+
+,
+
+{
+  picture: 'img/stimuli/IAPS/5.JPG',
+  reapp_target: {
+  comments: ["she is a survivor, she managed to get out of that abusive relationship.","she must have gotten in a fight with a mugger","Shoiwing of fthe blackk eye from the baseball she missed atthe game.","This image makes me sad with my prior history. It may be possible the injuies were self-inflicted","She is very strong. Hopefully nothing like this will happen to her again","She looks like she had a long night. Hopefully she gets some sleep.","This woman is a survivor or domestic abuse. She is sending such an important message to others.","She is in a safe place now from her abusive ex boyfriend.  She will recover from this quickly.","The lady is showing courage by showing her face."],
+  ratings: [5,7,3,5,4,2,4,8,2]
+}
+
+  target: {
+  comments: ["Looks like she got beat by abusive guy","Double black eyes, could be worse.","This women is a survivor of abuse.","I feel sad that this woman injured her eyes but hop","Looks like she might have gotten","Ouch.   Shiner.","the madam need support.","LOOKS like she has a black-eye; was she HIT, or is it just her allergies ?","This woman had plastic surgery and these are the healing photos."],
+  ratings: [7,1,"NaN",6,8,3,7,5,3]
+}
+
+  control: {
+  comments: ["This woman must have been in a fight. She looks hurt.","Seems like someone trying to be tough in the case of domestic violence.","This lady looks very weird.","A woman that was in an accident or possibly domestic violence situation.","She appears to be a woman that has been beaten. Angry and sad for her.","Domestic abuse is awful. I hope she left the asshole. who gave h","This woman looks like she's been beaten. Sad for her.","this is sad looking as it makes me think she's a abuse victim or something like that"],
+  ratings: [6,6,9,4,"NaN",10,9,4]
+}
+},
+
+,
+
+{
+  picture: 'img/stimuli/IAPS/6.JPG',
+  reapp_target: {
+  comments: ["she is playing in an action film","shes looking at the good job the makeup department did on her makeup for a movie","She was playing with  her kids andlet them put make up on for her, she d","what a strong woman. She is probably getting help for herself. She is very brave.","This looks very painful. I hope they will heal and be okay.","This woman is hurt, but she is lucky to be alive.","Thankfully they survived the crash and accident.","They could be in worst condition. At least t"],
+  ratings: [4,4,2,4,5,6,6,1]
+}
+
+  target: {
+  comments: ["It makes me feel pity sorrow compassion","Looks like he or she was in a horrific fight, gave as good as he got looks like","This person made it through and is able to smoke it off. That is pretty cool.","I hope he recovers from his car wreck. Looks painful but like he's doing well","Glad that she survived an accident and is still alive","Ouch.","The man got injured badly.","Poor lady; obviously injured, probably the victim of abuse from another person ! I hope she gets the right tr","This looks like she is in makeup for a tv show or movie"],
+  ratings: [10,2,7,4,3,3,8,6,9]
+}
+
+  control: {
+  comments: ["This poor woman. She looks like she is suffering both physically and emotio","Sad from the start, but this may be a surgery scar/bruise that will help in the long run.","Woman involved in an accident.","This woman has been beaten or been in an accident. Very rough condition.","The lady was in a fight and it looks rather painful.","I'm wondering what happened to their face. Something dangerous.","this one makes me sad as the woman looks really hurt and i hope it's not a abuse s"],
+  ratings: [9,4,5,7,7,6,9]
+}
+},
+
+,
+
+{
+  picture: 'img/stimuli/IAPS/7.JPG',
+  reapp_target: {
+  comments: ["is fortunate for having survived","she looks like she is in good hands, getting the medical help she ne","Eating cherry pie dressed as  a wise man naughty boy in the Christmas pagean","The child went through some sort of trauma and is slowly healing. The doctor is checking the bandages.","The boy is getting better. He is healing.","This is so sad. It's hard to see kids who are injured. I wonder what happened.","This poor child was severely hurt, but he is a alive and is going to a hospital.","The child quickly recovered from the car accident.  No serious injuries or death resulting from the accident.","This child is taking a stand to fight back."],
+  ratings: [6,6,3,7,5,8,5,6,3]
+}
+
+  target: {
+  comments: ["Horrible looks like this kid got his eye shot out","Poor little mite had an accident.  Hope he/she gets well soon.","This boy survived an acciendent","I hope these wounds heal","Sympathy she got hurt and got the help she needed","I'd like context for this?  Maybe war photography?","The baby got an accident. The face is ful","feeling sad for the child.","Sad someone so young needs this treatment; very bandaged - HOW did they get hurt to begin with ?","This child fell while riding a bike. It looks worse than what it actually"],
+  ratings: [10,4,8,6,4,2,10,10,2,4]
+}
+
+  control: {
+  comments: ["Oh no. This poor child, children should never have to suffer. its not right.","This poor baby is suffering physically from some surgery or trauma.","A child that is badly injured.","Very sad to see this poor child. Looks like he survived an earthquake, so at nleast thats a posi","The child injured there head and seems sad. I feel","Horrdenous. This child has been through a lot.","this is sad looking and it makes me sad to look at it as the kid looks really hurt"],
+  ratings: [10,9,7,6,6,8,10]
+}
+},
+
+,
+
+{
+  picture: 'img/stimuli/IAPS/8.JPG',
+  reapp_target: {
+  comments: ["is fortunate for having survived","the man had a bottle of ketchup explode on him at dinner, ruining his favorie shirt","Someone just dumped ketchup on him as  a prank and he's looking to pranbk t","It seems like this man was attacked or assulted but it's not clear the whole sitautu","He might be fighting for freedom. He has very intense emotions.","I have so many questions about what is happening. Hopefully he is okay.","This man looks like he might be an actor for a horror movie. It's not alarming.","He quickly recovered from this accident.","This person seems to be okay. Even with the blood."],
+  ratings: ["NaN",5,2,4,6,4,5,6,1]
+}
+
+  target: {
+  comments: ["This is very bloody this guy looks like he's been in a w","Looks like he was in a riot and still angry.","Looks like this person is helping those who can not be helped.","He looks upset but not in too much pain,","Glad that he looks alive and well just some cuts that the blood is","Wonder if this war phography or a still shot from a horror movie","His face is full of blood. Like he fight with someone.","looks like he was attracked by someon","One angry man; that is probably not all his own blood; i hate fights like that......","This is a scene from a movie."],
+  ratings: [10,2,8,5,3,2,10,"NaN",3,"NaN"]
+}
+
+  control: {
+  comments: ["This man looks mad. He must have just been in a fight.","Looks like someone who survived an attack of some sort. Glad he's alive.","Looks like a guy in a bar fight.","Yikes! Lucky he survived whatever fight he got himself into.","The guy looks like a bomb went of near him. I'm curious","Upset man yelling, might be covered in blood thats not his","this one is kind of hard to look and i hope the guy is ok as thats a worryin"],
+  ratings: [4,4,3,8,4,7,8]
+}
+},
+
+,
+
+{
+  picture: 'img/stimuli/IAPS/9.JPG',
+  reapp_target: {
+  comments: ["the 007 scene!","this is from a movie about a gangster showing how tough he is","He is learning the right way to shoot a gun I am glad there are responsible gun owners.","This seems like another picture from a movie or film - I do not feel any sadness or emotions.","The person is very determined. We as the viewer can see their intensity.","Hopefully they are acting in a scene or at a gun range. It's good to know how to safely handle a gun.","Hopefully this person is not pointing a real gun at someone. Maybe he is an ac","This man is engaging in a training video.  He is showing how to properly use a gun against a dangerous criminal.","He photoshopped himself holding a gun."],
+  ratings: ["NaN",5,1,1,7,3,2,4,1]
+}
+
+  target: {
+  comments: ["About to kill somebody not good","Cool looking photo. Nice gun. From a movie?","This guys is taking what he wants and risking it all.","That's a cool background and shadowing","A guy is showing off his gun, no emotion","Stock photo?  Stock photo.","cool boy. maybe it is a toy.","Scare me to death; i have not done anything to deserve being looked at like this !!!! Someone means busines","This looks like an ad"],
+  ratings: [10,1,8,2,4,1,4,7,7]
+}
+
+  control: {
+  comments: ["I never liked guns. They are dangerous and horrible inventions of man.","Seems like a movie poster, so if real it's scary, but seems like a prop, so no real negative emotions.","A guy acting for a film. Looks like a preview or theatre poster","Something i never want to see in real life. hes angry and aggressive","Dude thinks he's tough. Looks serious","This is a scary point of view. Brings up feelings of fear","the scene is kind of surprising and it makes me a little nervous to see but other than that not reall"],
+  ratings: [5,2,2,8,2,6,3]
+}
+},
+
+,
+
+{
+  picture: 'img/stimuli/IAPS/10.JPG',
+  reapp_target: {
+  comments: ["they are two friends who have not seen each other for a long time, they are playing wrestling.","these two are play fighting in a van.","Practicing self defense so she will be safe, what a good dad to help her.","This can be stopped, she looks determined to survive and fight back.","This looks like someone helping somebody in need. I don't think this is necessarily a negative.","This is a self-defense class, and this is one of the techniques being shown.","This man is helping a drunk woman into a van and will take her home to get sober.","They are acting out kidnapping."],
+  ratings: [5,3,1,4,2,2,5,1]
+}
+
+  target: {
+  comments: ["Controlling husband or kidnapping","Kidnapping attempt, bite him!  angry","This person is saving this girl from an attacker.","Looks like the end of a fun night","Sad that a man is trying to kidnap another person","Stock photo?  Stock photo.","i think the people is sick.","Looks like a woman is being forced against her will.  Where is this taking place at ? It is alar","This is from a prevention advertisement. It is not a real life scenario."],
+  ratings: [10,5,7,3,3,2,8,3,4]
+}
+
+  control: {
+  comments: ["She looks like she is resisting him. I hope she is able to release herself.","Scared that someone is being abducted","A woman being abducted.","horrible image. The woman must be terrified. The man appears to be a monster.","The guy is trying to kidnap the girl. He has","I feel bad for the woman, and scared. I can imagine what it would be like to","This one makes me sad and angry to look at as it looks like the guy is abducting the woman or something"],
+  ratings: [6,5,9,9,5,8,7]
+}
+},
+
+,
+
+{
+  picture: 'img/stimuli/IAPS/11.JPG',
+  reapp_target: {
+  comments: ["he has just won a boxing championship","he is taking a beating, but still in the fight wants that win badly","He is a boxer and he enjoys his job good for him. I am happy for him.","This picture doesn't invoke emotions because he looks like a professional fighter.","He looks like a fighter. Maybe is is winning his match.","This looks like a boxing match which can be a great show of strength. Hopefully the come back with a strong right-hook","Someone is getting very hurt during a fight, but hopefully they can come back","The boxing fighter recovered from the hit and eventually won the fight.  It was just one","This is just part of being a boxer. Nothing to be alarmed about."],
+  ratings: [4,8,3,1,3,2,5,5,1]
+}
+
+  target: {
+  comments: ["This guy looks like he lost a fight in the boxing ring","Boxing match, I don't understand the draw.","He is taking the punches and giving them back.","Ouch, looks like a tough bout for this boxer. Hope he scored enough points","Looks like a boxer that lost a fight, hopefully he put in good efforts","Well someone's losing their boxin","oh. sad. the person badly injured.","A fighter by choice, he has suffered quite a blow to his eye area - by his own choice ...","This is a scene from a tv show. It is not real."],
+  ratings: [8,1,6,3,2,1,7,2,3]
+}
+
+  control: {
+  comments: ["Wow, this man took a blow to the face. Never liked boxing, horrible sport.","Pain from the snapshot right as he's being punched in the chest with blood flying everywhere. Looks gruesome.","A man in a boxing fight.","Boxing is kind of a disgusting sport, but he knew what he was in for...","Seems like a violent sport getting punched in the face. It must hur","A capture of a boxer being punched. Very bloody, I can feel the impact.","that looks like it really hurts and makes me cringe a little bit but the guy looks like a boxer so it's not too"],
+  ratings: [5,2,3,3,7,8,3]
+}
+},
+
+,
+
+{
+  picture: 'img/stimuli/IAPS/12.JPG',
+  reapp_target: {
+  comments: ["he is doing a stunt double scene","this guy is doing an extreme stunt for an audience of cheering people","An indreddible stunt person. Awe struck.","This picture seems doctored or maybe for filming or a movie.","He looks like he as a fire suit on. Possible a dare devil trick or something.","This looks like a trick show. I hope he is wearing flame-retardant clothes.","This person on fire is a stuntman, and he knows what he is doing. He is wearing protective gear during this scene.","This person is a stunt person who is filming in a movie a fire scene.","This is just a stuntman using a burnsuit. He's fine."],
+  ratings: [2,3,2,1,2,2,1,2,1]
+}
+
+  target: {
+  comments: ["looks like a movie stunt","AWFUL...I hope it's a stunt man, I think it is.","This is ghost rider in true form.","Wow, daredevils are amazing","Riding through fire that must be very challenging I am sympathetic to them","Badass stunt.","it is horriable to watch","a true dare-devil; This picture must be from some movie.  It is artificially produced; no","This is a daredevil trick. The man is wearing a fire retardant suit."],
+  ratings: [1,2,5,1,3,1,6,2,3]
+}
+
+  control: {
+  comments: ["OH my word, this has to be fake, This would be unbearable to support.","Seems fake, but kind of cool looking. Seems like it's from a movie.","Stunt actor for a film.","This is a stunt. I dont like it, but I dont think its a tragedy.","I feel hot seeing the man on fire. I hope its flame te","Fire, flames. Awful situation.","this makes me surprised to look at and it looks like the guy is wearing protective gear so they're probably ok"],
+  ratings: [7,3,2,3,3,7,3]
+}
+},
+
+,
+
+{
+  picture: 'img/stimuli/IAPS/13.JPG',
+  reapp_target: {
+  comments: ["our aborigines transmitting their culture","man showing off his tribal ritual piercing","Others have strange traditions but who am I to judge.","This doesn't make me too sad. It's possible this is apart of their culture and they are doing this with their consent","This could be a ritual in his culture. He is very brave","oh no this looks so painful. i wonder if it's part of a ritual","This might be part of this person's culture, which is interesting.","This man is participating in his culture.  The lip piercing is part of showing his identity.","I don't think I have anything good to say for this one."],
+  ratings: [1,2,3,4,6,4,4,4,9]
+}
+
+  target: {
+  comments: ["Owch this looks like this hurts not","Ouch, why do people do this to themselves confused","This is tribal way that these people take care of each other","Ouch, it's nuts what some cultures will do","This is traditional culture nothing negative here","That's one way to get a lip ring.","very cruaal culture. should prevent.","This is a rite-of-passage piercing for some people --- not as painful","This looks like it is a cultural ritual. N"],
+  ratings: [6,4,6,5,2,1,6,2,4]
+}
+
+  control: {
+  comments: ["Uh, this looks bad. How this happened is beyond me.","BARF, that is almost worse than a dead body. He's still alive and I can't imagine the pain.","I felt very weird.","Disturbing image of a cultural norm in a different country.","Well thats something you dont see every day. Punishment, or adornment?","Looks like it hurts. How stupid can you be. I hope","This looks painful, maybe a type of torture","this one makes me recoil and the expression on the guys face just conveys a deep sense of pain and discomfort to me"],
+  ratings: [9,7,4,6,7,9,7,9]
+}
+},
+
+,
+
+{
+  picture: 'img/stimuli/IAPS/14.JPG',
+  reapp_target: {
+  comments: ["looks like everyone was saved and are doing well.","Look at all the survivors it could have been much worse they a","I am slightly sad by this picture, but it seems most of the passengers made it out and are on the way to safety.","So many people survived! They are able to walk away from what could have been much worse.","It looks like everyone got out okay. Plane crashes are scary but it's a miracle they survived.","All of these people are so lucky to be alive considering how bad that plane crash looks!","Thankfully everyone was able to escape from the crash with minor injuries.","All the people have survived the plane crash."],
+  ratings: [4,4,2,3,3,5,6,2]
+}
+
+  target: {
+  comments: ["It makes me feel concern pity","Horrible wreck, I'm happy there are survivors.","The pilot saved a lot of people by landing the plane.","These people must be happy to have survived","They are lucky to have survived a plane crash and be up and walking","I guess any landing you walk away from is a good landing?","oh my gos. It is an aircraft accident.","The plane is a wreck, but it looks like MOST people survived !  That would be a relief.... Hope","Everyone survived, thankfully. Scary situation but not deadly."],
+  ratings: [10,4,7,4,4,1,8,2,8]
+}
+
+  control: {
+  comments: ["Wow, an airplane crash. Looks bad, I hpe there are more survivors","Looks like a bad accident, however seems like many people while injured are walking away, so hopefully it wasn't too bad.","Plane crash survivors.","Horrible plane crash, but at least some survived. Thank goodness.","The plane crashed and there are a lot of injuries.","Very scary situation with a lot of people affected. Plane crashes are terrifying.","this one is hard to look at but it looks like most of the people survived so it doesn"],
+  ratings: [7,"NaN",7,5,7,6,6]
+}
+},
+
+,
+
+{
+  picture: 'img/stimuli/IAPS/15.JPG',
+  reapp_target: {
+  comments: ["our firefighters helping to save wildlife","their doing research on volcanos","The exciting ending to an action movie the good guys win again yeah.","With the uncertainly of this picture, I do not feel too sad or emotional. This fire could have mainly affected the env","They are well protected. This is probably a study of some sort.","It looks like they are going through things after a fire. It doesn't look like any life was lost.","I'm not sure what exactly is happening, but it looks deadly and scary. Hopefully, this is cleaning up.","I am so glad these rescuers stopped the spread of the fire.","Doesn't seem like anyone was hurt. Just a highly dangerous area."],
+  ratings: [5,3,2,5,3,2,6,4,2]
+}
+
+  target: {
+  comments: ["looks like a fire","Brave fireman putting something out, an oil spill maybe. Good work.","These people are bad asses and protect","Brave job those firefighters have","People looking for survivors so great of them to put their li","Wonder what the biohazard suits are needed for","This is like a fire accident that shows full of black smooky","two people are working in a bad condition.","Working in a hazardous area; was it an oil-spill ? Caught fi","They are cleaning up an oil spill along the beach."],
+  ratings: [5,1,6,2,2,2,9,7,4,10]
+}
+
+  control: {
+  comments: ["These people seem to be trying to stop the fire or contain a situation","Hard to tell if they in trouble or saving people in trouble.","Biohazard incident being cleaned up by professionals.","Looks like an oil fire. Very destructive to the environment. Hazardous duty.","The oil and water is engulfed in flames I feel bad for the anima","Dangerous situation, looks like the fallout from an explosion. Scary.","this one makes me kind of amazed"],
+  ratings: [5,2,3,5,9,3,3]
+}
+},
+
+,
+
+{
+  picture: 'img/stimuli/IAPS/16.JPG',
+  reapp_target: {
+  comments: ["the man is giving the other a proper burial in their traditinal way","He is playing a part in amovie, and realizing his dream of being in a horror movi","I can not tell what is in the hole. It's possible the man is just digging a hole.","This is a very natural and peaceful way to be buried.","This is sad but necessary. Hopefully they died peacefully.","Someone is burying another human being. At least this person isn'","I am glad this farmer helped rescue this man from the hole.  He is a hero.","The person is already dead. Giving them a proper bar"],
+  ratings: [7,3,3,2,2,6,7,1]
+}
+
+  target: {
+  comments: ["Somebody getting buried in the ground","Awful war is awful.  Buriel pit.","This guy is finally at peace and feels no pain.","I wish there was a better graveyard for this person","Sad that someone died but happy they are getting a proper bariel","gotta fill in the corpse hole","the man maybe murdered. bu","Did this guy do the killing ?  This is odd...  looks scary and","This looks as if it is a scene from a movie, not a"],
+  ratings: [1,8,7,6,3,1,6,7,10]
+}
+
+  control: {
+  comments: ["I can't imagine having to bury someone.  Must be very hard and sad at the same time.","Terrifying seeing someone be buried. Are they alive? Is this formal?","This is very fearful because there is a dead perso","Burying bodies,","Burying a friend in the rural way. It is sad, but traditional.","A man is being buried it seems peaceful.","Burying bodies. I feel sad for the person who's job it is to do so.","this one is kind of sad and somber looking as the guy looks like he's filling in a unmarked grave for whatever reas"],
+  ratings: [10,6,8,6,6,1,7,4]
+}
+},
+
+,
+
+{
+  picture: 'img/stimuli/IAPS/17.JPG',
+  reapp_target: {
+  comments: ["hopefully he is ok","Poor guy passedout andspilt his wine. Hope the do","I feel really sad by the presence of the dogs in the pictire and the graphic body of the guy.","maybe he is at peace. He had others that loved him.","This is so horrible. Those dogs look very confused. Hopefully help comes soon.","This is so scary to think about what happened to this man. I hope people are able to figure out who he i","He was taken to a hospital and eventually recovered after 3 months of care.","This is absolutely horrible. This man is dead with his brains s"],
+  ratings: [8,4,9,7,8,7,8,7]
+}
+
+  target: {
+  comments: ["Terrible maybe ran over by a car","Wow, awful...hope they catch the driver. Outraged","These people will take care of his remains.","That's sad, wonder what accident ha","Wonder what happened how did they die, curious","PUPPY!","sad. don't know what is happened.","Horrifying, to come upon a very serious injury like this; lost much blood......","This man suffered a horrible accident."],
+  ratings: [10,6,7,"NaN",4,2,8,8,10]
+}
+
+  control: {
+  comments: ["This is horrible. I can't even look at it.","Brutal! People just standing over him with dogs sniffing the blood?","Looks like he was maybe hit by a car and killed.","Possibly a drive-by shooting. All too common in my city. Another young life gone","The dogs are licking blood off a dead man which","Upsetting. Wondering what happened to this poor person","this is just makes me sad to see and the guy looks like he went out in a bad way"],
+  ratings: [10,9,8,9,3,10,6]
+}
+},
+
+,
+
+{
+  picture: 'img/stimuli/IAPS/18.JPG',
+  reapp_target: {
+  comments: ["they were playing with mud","the boys are done playing in the mud all day. had too much fun","The escaped the fire alive lucky kids. Glad they are o","These children may have been pos","At least they got out safely. They could have been hurt and other than dirty they seem okay","These kids look more annoyed than injured. It looks like they got caught in soot.","These kids were being mischievous and were playing where they weren't supposed","These kids played in the dirt and mud and got dirty. They cleaned up quickly after this photo.","The children seemed to be okay."],
+  ratings: [3,4,3,4,4,2,2,2,2]
+}
+
+  target: {
+  comments: ["Children escaping a burning home","Cute kids in a sad life situtaion.  Bless them, they lood good","These boys surived a great attack.","I feel bad these kids were playing near such dirty conditions","Boys dirty from working in a coal mine?","... What the hell have you been rollingi","ha ha ha .it is interesting.","Able to escape a hazardous situation; both of them are bruised and marked","These boys were playing in a dirt pi"],
+  ratings: [3,5,7,6,5,"NaN",8,3,3]
+}
+
+  control: {
+  comments: ["Horrible to see children going through hardships. Very sad.","Sadness that these poor kids are experience stress and pain.","Children possibly living in poverty or playing in the mud?","Looks like kids on the Black Sea trying to figure out why their world is upside down","The kids are dirty and like they are up to no good.","These children look like they've been through a lot. Maybe a bombing or eruption","pretty sad looking, those kids look miserable and it looks like they live"],
+  ratings: [10,7,3,6,1,6,8]
+}
+},
+
+,
+
+{
+  picture: 'img/stimuli/IAPS/19.JPG',
+  reapp_target: {
+  comments: ["the firefirethers are there to save the day and the lives of these people","They are doing a drill I am  proud of the fireman who rescue people.","I am sad by this picture of the car crash. It seems to only be two cars on a busy interstate and could ha","Cars are made so differently now. HOpefully no one was seriously hurt. Im glad there are professionals","Car accidents are always hard to see. Hopefully everyone is okay.","This looks like it was a fatal accident. There is hardly anything left of the car. Hopefully, this will help to chang","I am glad they survived the crash.  They will recover from their injuries.","Nobody around seems to be hurt."],
+  ratings: [7,1,6,4,4,5,7,1]
+}
+
+  target: {
+  comments: ["It looks like a horrible car crash like somebody","Awful wreck, I hope the driver survived. I'm glad I don't work that job","It is good that car are safer and this person will survive this","glad the fire is out","A bad car accident hopefully there were survivors","Aaaaaand now there's going to be a traffic jam.","it is an accident.","There has been a very serious accident; looks like a GREAT loss of blood;","Terrible looking accident but the driver was unhurt."],
+  ratings: [10,2,6,4,10,2,9,5,9]
+}
+
+  control: {
+  comments: ["Really bad car wreck, I hope the people survived.","Gruesome car accident that I can't imagine had any survivors.","I felt very sad for this accident.","Car crash with fatalities.","This is a terrible accident. Probably fatal. very sad to see, but kind of common thes","A car was in a really bad accident and someone was hurt.","A very bad car crash. It's not likely that anyone survived this.","this makes me sad to look at as the car looks totaled and was in a big accident so i don't think the occupants are ok"],
+  ratings: [8,4,10,7,7,7,6,8]
+}
+},
+
+,
+
+{
+  picture: 'img/stimuli/IAPS/20.JPG',
+  reapp_target: {
+  comments: ["thank god firefighters arrived to save her","she is safe now.","The woman will be safe so proud of our fireman.","I'm glad they are able to save her! They are doing what they know to do","These are real heroes who are saving someone. Fire is so scary.","What an amazing attempt by firefighters to save someone from a horrible fire.","I am grateful for the firefighters rescuing all the residents of the home and they survived their minor","Hopefully they arrived intime to save them from the fire."],
+  ratings: [6,4,3,4,3,7,6,2]
+}
+
+  target: {
+  comments: ["House fire rescue","Thank God for our fireman, hope the woman ends up okay.","They are living this girl's life out of a fire.","I'm happy those firefighters rescued that woman","Fireman saving a woman hopefully she makes it","Huh.  pr","I wish the girl is alive and well.","these men are heroes saving lives; They KNOW the correct protocol to stay safe doing this rescu","These firefighters are heroes. They saved the woman's life."],
+  ratings: [5,2,6,5,5,1,8,2,4]
+}
+
+  control: {
+  comments: ["horrible.","Hero saving someone from a tragedy.","I felt very proud for this fire fighters.","Very sad, looks like a woman has died in a house fire.","Fire death is so tragic. Im very sorry to see this poor woman. Hero firemen though","Firefighters are carrying a women down a ladder from a roof of","Very scary. I'm hoping this person survived. Brave firefighters.","this looks pretty surprising and i hope the woman is ok as it looks like she's hurt"],
+  ratings: [5,4,3,8,9,7,8,9]
+}
+},
+
+
+}
