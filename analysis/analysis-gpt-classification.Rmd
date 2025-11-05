@@ -373,9 +373,15 @@ m2_control_main <- glmer(gpt_label_bi ~ grp_method2*grp_goal2 + trial +
             data = emoreg_dat %>% filter(subgrp == "control"), 
             family = binomial, control = glmerControl(optimizer = "bobyqa"))
 
-summary(m2_control_main)
-confint(m2_control_main)
+my_summ_lm(m2_control_main)
 
+
+
+```
+
+
+## Only looking at the first few trials
+```{r}
 
 # only looking at the first trial
 summary(glmer(gpt_label_bi ~ group_cond  +
@@ -399,5 +405,5 @@ summary(glmer(gpt_label_bi ~ group_cond  +
               (1 | sub_id) + (1 | img),
             data = emoreg_dat %>% filter(subgrp == "control" & trial %in% c(2,3)), 
             family = binomial)) 
-
 ```
+

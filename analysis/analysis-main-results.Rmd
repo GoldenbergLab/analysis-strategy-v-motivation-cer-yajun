@@ -1268,331 +1268,6 @@ save(p_curve_goal, file = "p_curve_goal.rda")
 
 ```
 
-# Bert data
-```{r}
-bert_solo <- read_csv("../Data/embed_solo_output.csv")
-bert_grp <- read_csv("../Data/embed_output.csv")
-
-head(bert_grp)
-```
-
-# Calculate reappraisal baseline by each image by solo data
-```{r}
-
-table(bert_solo$group_cond)
- 
-base_line <- data.frame(matrix(ncol = 21, nrow = 768))
-
-dim_name <- c()
-
-for (i in 1:768) {
-  dimi <- paste0("embed", i-1)
-  dim_name <- append(dim_name, dimi)
-}
-
-base_line[1] <- as.array(dim_name)
-
-colnames(base_line)[1] <- "dim"
-
-for (i in 1:20) {
-  base_line_imgi <- bert_solo %>%
-  filter(img == i) %>%
-  filter(group_cond %in% c("reapp", "control")) %>%
-  group_by(group_cond) %>%
-  summarize(across(starts_with("embed"),~mean(.x))) %>%
-  pivot_longer(-group_cond, names_to = "dim", values_to = "base_line") %>%
-  pivot_wider(values_from = base_line, names_from = group_cond, names_prefix = "base_") %>%
-  rowwise() %>%
-  mutate(base_line = base_reapp - base_control) %>%
-  ungroup()
-  
-  base_line[i+1] <- base_line_imgi$base_line
-}
-
-
-#saveRDS(base_line, here("../../Data/base_line.rds"))
-
-```
-
-## Another way to calculate baseline by grouped data
-```{r}
-
-base_line <- data.frame(matrix(ncol = 21, nrow = 768))
-dim_name <- c()
-
-for (i in 1:768) {
-  dimi <- paste0("embed", i-1)
-  dim_name <- append(dim_name, dimi)
-}
-
-base_line[1] <- as.array(dim_name)
-colnames(base_line)[1] <- "dim"
-
-for (i in 1:20) {
-base_line_imgi <- bert_grp %>%
-  filter(img == i) %>%
-  filter((group_cond == "reapp" & subgrp == "treatment")| group_cond == "control") %>%
-  group_by(group_cond) %>%
-  summarize(across(starts_with("embed"),~mean(.x))) %>%
-  pivot_longer(-group_cond, names_to = "dim", values_to = "base_line") %>%
-  pivot_wider(values_from = base_line, names_from = group_cond, names_prefix = "base_") %>%
-  rowwise() %>%
-  mutate(base_line = base_reapp - base_control) %>%
-  ungroup()
-
-base_line[i+1] <- base_line_imgi$base_line
-}
-```
-
-# Calculate distance from reappraisal semantics
-```{r}
-
-distance <- NULL
-
-for (i in 1:20) {
-base_linei <- base_line[c(1, i+1)]
-colnames(base_linei)[2] <- "baseline"
-
-distance_imgi <- bert_grp %>%
-  filter(img == i) %>%
-    pivot_longer(starts_with("embed"), names_to = "dim", values_to = "embed_value") %>%
-    left_join(base_linei, "dim") %>%
-    group_by(group_cond, subgrp, grp_goal, grp_method, groupID, img, trial, sub_id) %>%
-    summarise(dist = 1- cosine(embed_value, baseline),
-              .groups = "drop")
-
-distance <- rbind(distance, distance_imgi)
-
-}
-
-hist(distance$dist)
-
-#distance <- distance[!duplicated(distance),]
-
-```
-
-
-# Descriptive of language change
-```{r}
-# treatment subgroups
-distance %>%
-  filter(subgrp == "treatment") %>%
-  group_by(group_cond, trial) %>%
-  summarise(avg_dist = mean(dist)) %>%
-  ggplot(aes(x = trial, y = avg_dist, color = group_cond)) +
-  geom_point() +
-  geom_smooth(se = F) + 
-  theme_classic()
-
-
-distance %>%
-  filter(subgrp == "treatment") %>%
-  ggplot(aes(group_cond, dist, fill = group_cond)) +
-  geom_violin(alpha = 0.6) + 
-  geom_boxplot(width = 0.2, alpha = 0.75) +
-  stat_summary(fun=mean, geom='point', shape=20, color = "red3", size = 3)
-  
-
-# control subgroups
-distance %>%
-  filter(subgrp == "control") %>%
-  group_by(group_cond, trial) %>%
-  summarise(avg_dist = mean(dist)) %>%
-  ggplot(aes(x = trial, y = avg_dist, color = group_cond)) +
-  #geom_line()+
-  geom_smooth(se = F) + 
-  theme_classic()
-
-distance %>%
-  filter(subgrp == "control") %>%
-  ggplot(aes(group_cond, dist, fill = group_cond)) +
-  geom_violin(alpha = 0.6) + 
-  geom_boxplot(width = 0.2, alpha = 0.75) +
-  stat_summary(fun=mean, geom='point', shape=20, color = "red", size = 3)
-  
-distance %>%
-  ggplot(aes(subgrp, dist, fill = subgrp)) +
-  geom_violin(alpha = 0.6) + 
-  geom_boxplot(width = 0.2, alpha = 0.75) +
-  stat_summary(fun=mean, geom='point', shape=20, color = "red", size = 3) +
-  facet_grid(cols = vars(group_cond))
-
-```
-
-# Quant analysis
-```{r}
-# Treatment subgroup
-distance$grp_goal <- relevel(as.factor(distance$grp_goal), ref = "non_motivated")
-distance$group_cond <- relevel(as.factor(distance$group_cond), ref = "target")
-
-lmm_dist_t <- lmer(dist ~ group_cond + trial + (1|img) + (1|groupID/sub_id), 
-             distance %>% filter(subgrp == "treatment"))
-summary(lmm_dist_t)
-
-lmm_dist_t <- lmer(dist ~ grp_goal + grp_method + trial + (1|img) + (1|groupID/sub_id), 
-             distance %>% filter(subgrp == "treatment"))
-summary(lmm_dist_t)
-
-
-
-lmm_dist_c <- lmer(dist ~ grp_goal + grp_method + trial + (1|img) + (1|groupID/sub_id), 
-             distance %>% filter(subgrp == "control"))
-summary(lmm_dist_c)
-
-lmm_dist_c <- lmer(dist ~ grp_goal * grp_method + trial + (1|img) + (1|groupID/sub_id), 
-             distance %>% filter(subgrp == "control"))
-summary(lmm_dist_c)
-
-
-
-summary(lmer(dist ~ grp_goal*grp_method*trial + (1|img) + (1|groupID/sub_id), 
-             distance %>% filter(subgrp == "control"))) # ns
-
-summary(lmer(dist ~ (grp_goal + grp_method) * trial + (1|img) + (1|groupID/sub_id), 
-             distance %>% filter(subgrp == "treatment"))) #ns
-
-```
-
-# Binary trial anaylsi
-```{r}
-distance$trial_int = as.integer(distance$trial)
-distance$trial_binary = ifelse(distance$trial_int<11,"first_half","second_half")
-
-summary(lmer(dist ~ grp_goal*grp_method*trial_binary + (1|img) + (1|groupID/sub_id), 
-             distance %>% filter(subgrp == "control"))) # ns
-
-summary(lmer(dist ~ group_cond*trial_binary + (1|img) + (1|groupID/sub_id), 
-             distance %>% filter(subgrp == "control"))) # ns
-
-summary(lmer(dist ~ (grp_goal + grp_method) * trial_binary + (1|img) + (1|groupID/sub_id), 
-             distance %>% filter(subgrp == "treatment"))) #ns
-
-summary(lmer(dist ~ group_cond * trial_binary + (1|img) + (1|groupID/sub_id), 
-             distance %>% filter(subgrp == "treatment"))) #ns
-
-```
-
-# Similarity between the control and treatment subgroup
-```{r}
-# Randomly pick half of the control condition observations
-bert_grp$control_rand <- NA
-
-bert_grp <- bert_grp %>%
-  group_by(group_cond, trial, subgrp) %>%
-  mutate(control_rand = ifelse(group_cond == "control", ifelse(row_number() <= n() / 2, "group1", "group2"), NA)) %>%
-  ungroup()
-
-bert_grp %>% 
-  filter(group_cond == "control" & subgrp == "control") %>% 
-  count(control_rand) # looks good
-
-
-# Calculate the average embedding of each condition and trial
-treat_bert <- bert_grp %>%
-  filter(subgrp == "treatment" | control_rand == "group1") %>%
-  group_by(group_cond, trial) %>%
-  summarize(across(starts_with("embed"),~mean(.x))) %>%
-  pivot_longer(starts_with("embed"), names_to = "dim", values_to = "treat_bert")
-
-table(treat_bert$group_cond)
-  
-control_bert <- bert_grp %>%
-  filter(subgrp == "control"| control_rand == "group2") %>%
-  group_by(group_cond, trial) %>%
-  summarize(across(starts_with("embed"),~mean(.x))) %>%
-  pivot_longer(starts_with("embed"), names_to = "dim", values_to = "control_bert")
-
-treat_cont_bert <- inner_join(treat_bert, control_bert, by = c("group_cond", "trial", "dim"))
-
-treat_cont_dist <- treat_cont_bert %>%    
-  group_by(group_cond, trial) %>%
-  summarise(dist = 1- cosine(treat_bert, control_bert), .groups = "drop")
-  
-
-```
-```{r}
-ggplot(data = treat_cont_dist, aes(x = trial, y = dist, color = group_cond)) +
-  geom_point() + 
-  geom_smooth(method = "lm",se = F)
-
-summary(lm(dist ~ group_cond + trial, treat_cont_dist))
-
-```
-
-
-
-# Concat texts at individual level
-
-```{r}
-bert_concat_data <- read_csv("../Data/concat_embed_dat.csv")
-
-
-# Calculate reappraisal baseline
-base_line <- bert_concat_data %>%
-  filter((group_cond == "reapp" & subgrp == "treatment") | group_cond == "control") %>%
- # mutate(group_cond = replace(group_cond, group_cond == "reapp_target", "reapp")) %>%
-  group_by(group_cond) %>%
-  summarize(across(starts_with("embed"),~mean(.x))) %>%
-  pivot_longer(-group_cond, names_to = "dim", values_to = "base_line") %>%
-  pivot_wider(values_from = base_line, names_from = group_cond, names_prefix = "base_") %>%
-  rowwise() %>%
-  mutate(base_line = base_reapp - base_control) %>%
-  ungroup()
-
-
-distance_con <- bert_concat_data %>%
-  pivot_longer(starts_with("embed"), names_to = "dim", values_to = "embed_value") %>%
-    left_join(base_line, "dim") %>%
-    group_by(group_cond, subgrp, grp_goal, grp_method, groupID, sub_id) %>%
-    summarise(dist = 1- cosine(embed_value, base_line),
-              .groups = "drop")
-```
-
-
-```{r}
-hist(distance_con$dist)
-
-# treatment subgroups
-
-distance_con %>%
-  filter(subgrp == "treatment") %>%
-  ggplot(aes(group_cond, dist, fill = group_cond)) +
-  geom_violin(alpha = 0.6) + 
-  geom_boxplot(width = 0.2, alpha = 0.75) +
-  stat_summary(fun=mean, geom='point', shape=20, color = "red3", size = 3)
-
-# control subgroups
-
-distance_con %>%
-  filter(subgrp == "control") %>%
-  ggplot(aes(group_cond, dist, fill = group_cond)) +
-  geom_violin(alpha = 0.6) + 
-  geom_boxplot(width = 0.2, alpha = 0.75) +
-  stat_summary(fun=mean, geom='point', shape=20, color = "red3", size = 3)
-
-distance_con %>%
-  ggplot(aes(subgrp, dist, fill = subgrp)) +
-  geom_violin(alpha = 0.6) + 
-  geom_boxplot(width = 0.2, alpha = 0.75) +
-  stat_summary(fun=mean, geom='point', shape=20, color = "red3", size = 3) +
-  facet_grid(cols = vars(group_cond))
-
-```
-```{r}
-
-
-lmm_dist_c <- lmer(dist ~ grp_goal*grp_method + (1|groupID), 
-             distance_con %>% filter(subgrp == "control"))
-summary(lmm_dist_c)
-plot_model(lmm_dist_c, "int")
-
-
-lmm_dist_t <- lmer(dist ~ grp_goal + grp_method + (1|groupID), 
-             distance_con %>% filter(subgrp == "treatment"))
-summary(lmm_dist_t)
-
-
-```
 
 # Variance within group change with trials
 ```{r}
@@ -1906,8 +1581,11 @@ power_analysis_data %>%
 
 
 
+#--------------- Archival -----------------#
 
-# GPT labeling
+
+
+# New GPT labeling
 ## Sample by image id
 - I looked at the first 10 responses for each picture and picked some as examples for GPT
 - First, I will look at agreement at the first 200
@@ -2282,9 +1960,11 @@ summary(glmer(gpt_label_bi ~ group_cond  +
 ```
 
 
-#--------------- Archival -----------------#
 
-# Output GPT labeling  
+
+
+
+# Old GPT labeling (without specifying each image's content)
 - I fine tuned the prompt after the first run and the second try achieved a good kappa
 - Need to further test it on additional sample
 ```{r}
@@ -2501,3 +2181,328 @@ print(kap_irr)
 
 
 
+# Bert data
+```{r}
+bert_solo <- read_csv("../Data/embed_solo_output.csv")
+bert_grp <- read_csv("../Data/embed_output.csv")
+
+head(bert_grp)
+```
+
+# Calculate reappraisal baseline by each image by solo data
+```{r}
+
+table(bert_solo$group_cond)
+ 
+base_line <- data.frame(matrix(ncol = 21, nrow = 768))
+
+dim_name <- c()
+
+for (i in 1:768) {
+  dimi <- paste0("embed", i-1)
+  dim_name <- append(dim_name, dimi)
+}
+
+base_line[1] <- as.array(dim_name)
+
+colnames(base_line)[1] <- "dim"
+
+for (i in 1:20) {
+  base_line_imgi <- bert_solo %>%
+  filter(img == i) %>%
+  filter(group_cond %in% c("reapp", "control")) %>%
+  group_by(group_cond) %>%
+  summarize(across(starts_with("embed"),~mean(.x))) %>%
+  pivot_longer(-group_cond, names_to = "dim", values_to = "base_line") %>%
+  pivot_wider(values_from = base_line, names_from = group_cond, names_prefix = "base_") %>%
+  rowwise() %>%
+  mutate(base_line = base_reapp - base_control) %>%
+  ungroup()
+  
+  base_line[i+1] <- base_line_imgi$base_line
+}
+
+
+#saveRDS(base_line, here("../../Data/base_line.rds"))
+
+```
+
+## Another way to calculate baseline by grouped data
+```{r}
+
+base_line <- data.frame(matrix(ncol = 21, nrow = 768))
+dim_name <- c()
+
+for (i in 1:768) {
+  dimi <- paste0("embed", i-1)
+  dim_name <- append(dim_name, dimi)
+}
+
+base_line[1] <- as.array(dim_name)
+colnames(base_line)[1] <- "dim"
+
+for (i in 1:20) {
+base_line_imgi <- bert_grp %>%
+  filter(img == i) %>%
+  filter((group_cond == "reapp" & subgrp == "treatment")| group_cond == "control") %>%
+  group_by(group_cond) %>%
+  summarize(across(starts_with("embed"),~mean(.x))) %>%
+  pivot_longer(-group_cond, names_to = "dim", values_to = "base_line") %>%
+  pivot_wider(values_from = base_line, names_from = group_cond, names_prefix = "base_") %>%
+  rowwise() %>%
+  mutate(base_line = base_reapp - base_control) %>%
+  ungroup()
+
+base_line[i+1] <- base_line_imgi$base_line
+}
+```
+
+# Calculate distance from reappraisal semantics
+```{r}
+
+distance <- NULL
+
+for (i in 1:20) {
+base_linei <- base_line[c(1, i+1)]
+colnames(base_linei)[2] <- "baseline"
+
+distance_imgi <- bert_grp %>%
+  filter(img == i) %>%
+    pivot_longer(starts_with("embed"), names_to = "dim", values_to = "embed_value") %>%
+    left_join(base_linei, "dim") %>%
+    group_by(group_cond, subgrp, grp_goal, grp_method, groupID, img, trial, sub_id) %>%
+    summarise(dist = 1- cosine(embed_value, baseline),
+              .groups = "drop")
+
+distance <- rbind(distance, distance_imgi)
+
+}
+
+hist(distance$dist)
+
+#distance <- distance[!duplicated(distance),]
+
+```
+
+
+# Descriptive of language change
+```{r}
+# treatment subgroups
+distance %>%
+  filter(subgrp == "treatment") %>%
+  group_by(group_cond, trial) %>%
+  summarise(avg_dist = mean(dist)) %>%
+  ggplot(aes(x = trial, y = avg_dist, color = group_cond)) +
+  geom_point() +
+  geom_smooth(se = F) + 
+  theme_classic()
+
+
+distance %>%
+  filter(subgrp == "treatment") %>%
+  ggplot(aes(group_cond, dist, fill = group_cond)) +
+  geom_violin(alpha = 0.6) + 
+  geom_boxplot(width = 0.2, alpha = 0.75) +
+  stat_summary(fun=mean, geom='point', shape=20, color = "red3", size = 3)
+  
+
+# control subgroups
+distance %>%
+  filter(subgrp == "control") %>%
+  group_by(group_cond, trial) %>%
+  summarise(avg_dist = mean(dist)) %>%
+  ggplot(aes(x = trial, y = avg_dist, color = group_cond)) +
+  #geom_line()+
+  geom_smooth(se = F) + 
+  theme_classic()
+
+distance %>%
+  filter(subgrp == "control") %>%
+  ggplot(aes(group_cond, dist, fill = group_cond)) +
+  geom_violin(alpha = 0.6) + 
+  geom_boxplot(width = 0.2, alpha = 0.75) +
+  stat_summary(fun=mean, geom='point', shape=20, color = "red", size = 3)
+  
+distance %>%
+  ggplot(aes(subgrp, dist, fill = subgrp)) +
+  geom_violin(alpha = 0.6) + 
+  geom_boxplot(width = 0.2, alpha = 0.75) +
+  stat_summary(fun=mean, geom='point', shape=20, color = "red", size = 3) +
+  facet_grid(cols = vars(group_cond))
+
+```
+
+# Quant analysis
+```{r}
+# Treatment subgroup
+distance$grp_goal <- relevel(as.factor(distance$grp_goal), ref = "non_motivated")
+distance$group_cond <- relevel(as.factor(distance$group_cond), ref = "target")
+
+lmm_dist_t <- lmer(dist ~ group_cond + trial + (1|img) + (1|groupID/sub_id), 
+             distance %>% filter(subgrp == "treatment"))
+summary(lmm_dist_t)
+
+lmm_dist_t <- lmer(dist ~ grp_goal + grp_method + trial + (1|img) + (1|groupID/sub_id), 
+             distance %>% filter(subgrp == "treatment"))
+summary(lmm_dist_t)
+
+
+
+lmm_dist_c <- lmer(dist ~ grp_goal + grp_method + trial + (1|img) + (1|groupID/sub_id), 
+             distance %>% filter(subgrp == "control"))
+summary(lmm_dist_c)
+
+lmm_dist_c <- lmer(dist ~ grp_goal * grp_method + trial + (1|img) + (1|groupID/sub_id), 
+             distance %>% filter(subgrp == "control"))
+summary(lmm_dist_c)
+
+
+
+summary(lmer(dist ~ grp_goal*grp_method*trial + (1|img) + (1|groupID/sub_id), 
+             distance %>% filter(subgrp == "control"))) # ns
+
+summary(lmer(dist ~ (grp_goal + grp_method) * trial + (1|img) + (1|groupID/sub_id), 
+             distance %>% filter(subgrp == "treatment"))) #ns
+
+```
+
+# Binary trial anaylsi
+```{r}
+distance$trial_int = as.integer(distance$trial)
+distance$trial_binary = ifelse(distance$trial_int<11,"first_half","second_half")
+
+summary(lmer(dist ~ grp_goal*grp_method*trial_binary + (1|img) + (1|groupID/sub_id), 
+             distance %>% filter(subgrp == "control"))) # ns
+
+summary(lmer(dist ~ group_cond*trial_binary + (1|img) + (1|groupID/sub_id), 
+             distance %>% filter(subgrp == "control"))) # ns
+
+summary(lmer(dist ~ (grp_goal + grp_method) * trial_binary + (1|img) + (1|groupID/sub_id), 
+             distance %>% filter(subgrp == "treatment"))) #ns
+
+summary(lmer(dist ~ group_cond * trial_binary + (1|img) + (1|groupID/sub_id), 
+             distance %>% filter(subgrp == "treatment"))) #ns
+
+```
+
+# Similarity between the control and treatment subgroup
+```{r}
+# Randomly pick half of the control condition observations
+bert_grp$control_rand <- NA
+
+bert_grp <- bert_grp %>%
+  group_by(group_cond, trial, subgrp) %>%
+  mutate(control_rand = ifelse(group_cond == "control", ifelse(row_number() <= n() / 2, "group1", "group2"), NA)) %>%
+  ungroup()
+
+bert_grp %>% 
+  filter(group_cond == "control" & subgrp == "control") %>% 
+  count(control_rand) # looks good
+
+
+# Calculate the average embedding of each condition and trial
+treat_bert <- bert_grp %>%
+  filter(subgrp == "treatment" | control_rand == "group1") %>%
+  group_by(group_cond, trial) %>%
+  summarize(across(starts_with("embed"),~mean(.x))) %>%
+  pivot_longer(starts_with("embed"), names_to = "dim", values_to = "treat_bert")
+
+table(treat_bert$group_cond)
+  
+control_bert <- bert_grp %>%
+  filter(subgrp == "control"| control_rand == "group2") %>%
+  group_by(group_cond, trial) %>%
+  summarize(across(starts_with("embed"),~mean(.x))) %>%
+  pivot_longer(starts_with("embed"), names_to = "dim", values_to = "control_bert")
+
+treat_cont_bert <- inner_join(treat_bert, control_bert, by = c("group_cond", "trial", "dim"))
+
+treat_cont_dist <- treat_cont_bert %>%    
+  group_by(group_cond, trial) %>%
+  summarise(dist = 1- cosine(treat_bert, control_bert), .groups = "drop")
+  
+
+```
+```{r}
+ggplot(data = treat_cont_dist, aes(x = trial, y = dist, color = group_cond)) +
+  geom_point() + 
+  geom_smooth(method = "lm",se = F)
+
+summary(lm(dist ~ group_cond + trial, treat_cont_dist))
+
+```
+
+
+
+# Concat texts at individual level
+
+```{r}
+bert_concat_data <- read_csv("../Data/concat_embed_dat.csv")
+
+
+# Calculate reappraisal baseline
+base_line <- bert_concat_data %>%
+  filter((group_cond == "reapp" & subgrp == "treatment") | group_cond == "control") %>%
+ # mutate(group_cond = replace(group_cond, group_cond == "reapp_target", "reapp")) %>%
+  group_by(group_cond) %>%
+  summarize(across(starts_with("embed"),~mean(.x))) %>%
+  pivot_longer(-group_cond, names_to = "dim", values_to = "base_line") %>%
+  pivot_wider(values_from = base_line, names_from = group_cond, names_prefix = "base_") %>%
+  rowwise() %>%
+  mutate(base_line = base_reapp - base_control) %>%
+  ungroup()
+
+
+distance_con <- bert_concat_data %>%
+  pivot_longer(starts_with("embed"), names_to = "dim", values_to = "embed_value") %>%
+    left_join(base_line, "dim") %>%
+    group_by(group_cond, subgrp, grp_goal, grp_method, groupID, sub_id) %>%
+    summarise(dist = 1- cosine(embed_value, base_line),
+              .groups = "drop")
+```
+
+
+```{r}
+hist(distance_con$dist)
+
+# treatment subgroups
+
+distance_con %>%
+  filter(subgrp == "treatment") %>%
+  ggplot(aes(group_cond, dist, fill = group_cond)) +
+  geom_violin(alpha = 0.6) + 
+  geom_boxplot(width = 0.2, alpha = 0.75) +
+  stat_summary(fun=mean, geom='point', shape=20, color = "red3", size = 3)
+
+# control subgroups
+
+distance_con %>%
+  filter(subgrp == "control") %>%
+  ggplot(aes(group_cond, dist, fill = group_cond)) +
+  geom_violin(alpha = 0.6) + 
+  geom_boxplot(width = 0.2, alpha = 0.75) +
+  stat_summary(fun=mean, geom='point', shape=20, color = "red3", size = 3)
+
+distance_con %>%
+  ggplot(aes(subgrp, dist, fill = subgrp)) +
+  geom_violin(alpha = 0.6) + 
+  geom_boxplot(width = 0.2, alpha = 0.75) +
+  stat_summary(fun=mean, geom='point', shape=20, color = "red3", size = 3) +
+  facet_grid(cols = vars(group_cond))
+
+```
+```{r}
+
+
+lmm_dist_c <- lmer(dist ~ grp_goal*grp_method + (1|groupID), 
+             distance_con %>% filter(subgrp == "control"))
+summary(lmm_dist_c)
+plot_model(lmm_dist_c, "int")
+
+
+lmm_dist_t <- lmer(dist ~ grp_goal + grp_method + (1|groupID), 
+             distance_con %>% filter(subgrp == "treatment"))
+summary(lmm_dist_t)
+
+
+```
