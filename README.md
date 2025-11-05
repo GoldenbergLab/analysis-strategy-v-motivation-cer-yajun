@@ -1,4 +1,4 @@
-# analysis-r-template
+# analysis-r-strategy-vs-motivation-study 1
 
 <!-- toc -->
 - [Purpose](#purpose)
@@ -12,12 +12,7 @@
 
 ## Purpose
 
-The goal of this template is to unify the process of analyzing data in the lab. To do this, we have created template that is easy to replicate and follow across many different projects. We expect this template to fit almost all kinds of analysis that we don in the lab.
-
-This template will instruct you how to:
-
-1. **Where to put your raw data:** Regardless of where the original data is coming from, all raw data should be located in the same folder. In case in which the data is in aws (many of our lab experiments come from there) you can find instructions on how to download all experiment data from AWS and save it **locally to your machine.**  
-2. **Demonstrate how to format `R` code analyses**
+The goal of this paper is to study how two important aspects of ER, strategy and motivation, contribute to the success of regulating group emotions. 
 
 ## Get Started
 
