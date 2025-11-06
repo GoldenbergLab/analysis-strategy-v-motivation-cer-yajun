@@ -11,7 +11,7 @@ p_load(readr, tidyverse, lmerTest, glmmTMB, brms, rstanarm, emmeans, jpeg, simr,
        vtree, sjPlot, insight, lsa, jsonlite, ggsignif, install = T)
 
 my_summ_lm <- function(x, ...) {
-    jtools::summ(x, scale=T, transform.response=T, model.info = F , confint = T, digits = 3, ...)
+    jtools::summ(x, scale=F, model.info = T , confint = T, digits = 3, ...)
 }
 
 options(scipen = 999)
@@ -25,6 +25,7 @@ emoreg_dat <- readRDS("../Data/emoreg_dat.rds")
 
 
 # GPT labeling
+#------- Agreement Testing -------#
 ## Create the training sample (for each image)
 - I looked at the first 10 responses for each picture and picked some as examples for GPT
 - I will look at agreement at the first 200
@@ -51,7 +52,6 @@ write_csv(gpt_agreement_byimg201_300, "GPT classification/agreement_byimg201_300
 
 ```
 
-#------- Agreement Testing -------#
 ## agreement in the first 200 (by image coding)
 ```{r}
 path <- "GPT classification/agreement_byimg_human_gpt.xlsx"  # adjust path if needed
@@ -192,7 +192,7 @@ write_csv(gpt_byimg_all, "GPT classification/gpt_byimg_all.csv")
 ```
 
 
-#--------- GPT Label Output Analyses ----------#
+# --------- GPT Label Output Analyses ---------- #
 
 ### merge the gpt output with the main dataset
 ```{r}
@@ -304,21 +304,21 @@ emoreg_dat %>%
 
 ## Text-level analysis based on GPT labels
 ### Treatment subgroup
-```{r}
+```{r glmer_treat}
 m1_treat <- glmer(gpt_label_bi ~ group_cond + trial +
-              (1 | sub_id) + (1 | img),
+              (1|groupID/sub_id) + (1 | img),
             data = emoreg_dat %>% filter(subgrp == "treatment"), 
             family = binomial)
 
-summary(m1_treat)
+my_summ_lm(m1_treat)
 
 
 m2_treat <- glmer(gpt_label_bi ~ grp_method*grp_goal + trial +
-              (1 | sub_id) + (1 | img),
+              (1|groupID/sub_id) + (1 | img),
             data = emoreg_dat %>% filter(subgrp == "treatment" | (subgrp == "control" & group_cond == "control")), 
-            family = binomial)
+            family = binomial,
+            control = glmerControl(optimizer = "bobyqa"))
 
-summary(m2_treat)
 my_summ_lm(m2_treat)
 
 
@@ -334,42 +334,108 @@ emoreg_dat$grp_method2[emoreg_dat$grp_method == "reappraisal"] <- 0.5
 emoreg_dat$grp_method2[emoreg_dat$grp_method == "observing"] <- -0.5
 
 m2_treat_main <- glmer(gpt_label_bi ~ grp_method2*grp_goal2 + trial +
-              (1 | sub_id) + (1 | img),
+              (1|groupID/sub_id) + (1 | img),
             data = emoreg_dat %>% filter(subgrp == "treatment" | (subgrp == "control" & group_cond == "control")), 
             family = binomial, control = glmerControl(optimizer = "bobyqa"))
 
 summary(m2_treat_main)
-confint(m2_treat_main)
+my_summ_lm(m2_treat_main)
 
-# Increase in motivation only condition's reappraisal propensity
+
+
+# Increase in reappraisal propensity in the mere motivation condition
 lm_motivation_only <- glmer(gpt_label_bi ~  trial +
-              (1 | sub_id) + (1 | img),
+              (1|groupID/sub_id) + (1 | img),
             data = emoreg_dat %>% filter(subgrp == "treatment" & group_cond == "motivation"), 
             family = binomial, control = glmerControl(optimizer = "bobyqa"))
 my_summ_lm(lm_motivation_only)
 
 ```
 
+```{r simple_treat}
+# Simple effects of the treatment subgroup
+
+
+## model 1 - simple effect of strategy under no motivation
+## code no motivation = 0
+emoreg_dat$grp_goal3 <- NA
+emoreg_dat$grp_goal3[emoreg_dat$grp_goal == "motivated"] <- 1
+emoreg_dat$grp_goal3[emoreg_dat$grp_goal == "non_motivated"] <- 0
+
+glm_simp1 <- glmer(gpt_label_bi ~ grp_method*grp_goal3 + trial +
+                   (1|groupID/sub_id) + (1 | img),
+            data = emoreg_dat %>% filter(subgrp == "treatment" | (subgrp == "control" & group_cond == "control")), 
+            family = binomial, control = glmerControl(optimizer = "bobyqa"))
+
+my_summ_lm(glm_simp1)
+
+## model 2 - simple effect of strategy under group motivation
+## code group motivation = 0
+emoreg_dat$grp_goal4 <- NA
+emoreg_dat$grp_goal4[emoreg_dat$grp_goal == "motivated"] <- 0
+emoreg_dat$grp_goal4[emoreg_dat$grp_goal == "non_motivated"] <- 1
+
+
+glm_simp2 <- glmer(gpt_label_bi ~ grp_method*grp_goal4 + trial +
+              (1|groupID/sub_id) + (1 | img),
+            data = emoreg_dat %>% filter(subgrp == "treatment" | (subgrp == "control" & group_cond == "control")), 
+            family = binomial, control = glmerControl(optimizer = "bobyqa"))
+
+my_summ_lm(glm_simp2)
+
+
+
+## model 3 - simple effect of motivation under observing
+## code observing strategy = 0
+emoreg_dat$grp_method3 <- NA
+emoreg_dat$grp_method3[emoreg_dat$grp_method == "reappraisal"] <- 1
+emoreg_dat$grp_method3[emoreg_dat$grp_method == "observing"] <- -0
+
+
+glm_simp3 <- glmer(gpt_label_bi ~ grp_method3*grp_goal + trial +
+              (1|groupID/sub_id) + (1 | img),
+            data = emoreg_dat %>% filter(subgrp == "treatment" | (subgrp == "control" & group_cond == "control")), 
+            family = binomial, control = glmerControl(optimizer = "bobyqa"))
+
+my_summ_lm(glm_simp3)
+
+## model 4 - simple effect of motivation under reappraisal
+## code reapp strategy = 0
+emoreg_dat$grp_method4 <- NA
+emoreg_dat$grp_method4[emoreg_dat$grp_method == "reappraisal"] <- 0
+emoreg_dat$grp_method4[emoreg_dat$grp_method == "observing"] <- -1
+
+
+glm_simp4 <- glmer(gpt_label_bi ~ grp_method3*grp_goal + trial +
+              (1|groupID/sub_id) + (1 | img),
+            data = emoreg_dat %>% filter(subgrp == "treatment" | (subgrp == "control" & group_cond == "control")), 
+            family = binomial, control = glmerControl(optimizer = "bobyqa"))
+
+my_summ_lm(glm_simp4)
+
+
+
+```
 
 
 ### Control subgroup using GPT Labels
-```{r}
+```{r glm_control}
 m1 <- glmer(gpt_label_bi ~ group_cond + trial +
-              (1 | sub_id) + (1 | img),
+              (1|groupID/sub_id) + (1 | img),
             data = emoreg_dat %>% filter(subgrp == "control"), 
             family = binomial)
 
 summary(m1)
 
 m2_control <- glmer(gpt_label_bi ~ grp_goal*grp_method + trial +
-              (1 | sub_id) + (1 | img),
+              (1|groupID/sub_id) + (1 | img),
             data = emoreg_dat %>% filter(subgrp == "control"), 
             family = binomial)
 
 my_summ_lm(m2_control)
 
 m2_control_main <- glmer(gpt_label_bi ~ grp_method2*grp_goal2 + trial +
-              (1 | sub_id) + (1 | img),
+              (1|groupID/sub_id) + (1 | img),
             data = emoreg_dat %>% filter(subgrp == "control"), 
             family = binomial, control = glmerControl(optimizer = "bobyqa"))
 
@@ -377,8 +443,60 @@ my_summ_lm(m2_control_main)
 
 
 
+
+
 ```
 
+
+
+```{r simple_control}
+# Simple effects of the treatment subgroup
+
+## model 1 - simple effect of strategy under no motivation
+## code no motivation = 0
+
+glm_control_simp1 <- glmer(gpt_label_bi ~ grp_method*grp_goal3 + trial +
+                   (1|groupID/sub_id) + (1 | img),
+            data = emoreg_dat %>% filter(subgrp == "control"), 
+            family = binomial, control = glmerControl(optimizer = "bobyqa"))
+
+my_summ_lm(glm_control_simp1)
+
+## model 2 - simple effect of strategy under group motivation
+## code group motivation = 0
+
+glm_control_simp2 <- glmer(gpt_label_bi ~ grp_method*grp_goal4 + trial +
+              (1|groupID/sub_id) + (1 | img),
+            data = emoreg_dat %>% filter(subgrp == "control"), 
+            family = binomial, control = glmerControl(optimizer = "bobyqa"))
+
+my_summ_lm(glm_control_simp2)
+
+
+
+## model 3 - simple effect of motivation under observing
+## code observing strategy = 0
+
+glm_control_simp3 <- glmer(gpt_label_bi ~ grp_method3*grp_goal + trial +
+              (1|groupID/sub_id) + (1 | img),
+            data = emoreg_dat %>% filter(subgrp == "control"), 
+            family = binomial, control = glmerControl(optimizer = "bobyqa"))
+
+my_summ_lm(glm_control_simp3)
+
+## model 4 - simple effect of motivation under reappraisal
+## code reapp strategy = 0
+
+glm_control_simp4 <- glmer(gpt_label_bi ~ grp_method3*grp_goal + trial +
+              (1|groupID/sub_id) + (1 | img),
+            data = emoreg_dat %>% filter(subgrp == "control"), 
+            family = binomial, control = glmerControl(optimizer = "bobyqa"))
+
+my_summ_lm(glm_control_simp4)
+
+
+
+```
 
 ## Only looking at the first few trials
 ```{r}
