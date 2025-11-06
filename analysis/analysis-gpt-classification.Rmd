@@ -487,7 +487,7 @@ my_summ_lm(glm_control_simp3)
 ## model 4 - simple effect of motivation under reappraisal
 ## code reapp strategy = 0
 
-glm_control_simp4 <- glmer(gpt_label_bi ~ grp_method3*grp_goal + trial +
+glm_control_simp4 <- glmer(gpt_label_bi ~ grp_method4*grp_goal + trial +
               (1|groupID/sub_id) + (1 | img),
             data = emoreg_dat %>% filter(subgrp == "control"), 
             family = binomial, control = glmerControl(optimizer = "bobyqa"))
