@@ -1012,7 +1012,7 @@ df_means %>%
                 levels=c("control", "reappraisal", "motivation", "motivation & reappraisal"))) %>%
   mutate(condition = recode(condition, reappraisal = "self reapp", motivation = "group goal only", "motivation & reappraisal" = "group reapp")) %>%
   ggplot(aes(x = trial, y = rating, color = condition)) +
-  geom_smooth( se = F) + 
+  geom_smooth(method = "lm") + 
   geom_point() + 
   labs(y = "Control subgroup average ratings") +
   theme_classic()
