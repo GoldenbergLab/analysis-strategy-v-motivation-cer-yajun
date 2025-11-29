@@ -16,7 +16,7 @@ p_load(readr, tidyverse, lmerTest, glmmTMB, brms, rstanarm, emmeans, jpeg, simr,
        vtree, sjPlot, insight, lsa, jsonlite, ggsignif, install = T)
 
 my_summ_lm <- function(x, ...) {
-    jtools::summ(x, scale=T, transform.response=T, model.info = F , confint = T, digits = 3, ...)
+    jtools::summ(x, scale=F, transform.response=F, model.info = F , confint = T, digits = 3, ...)
 }
 
 options(scipen = 999)
@@ -272,7 +272,7 @@ lmm_treat <- lmer(rate ~ grp_goal*grp_method + size + trial + (1|img) +  (1|grou
 
 my_summ_lm(lmm_treat)
 
-
+'''
 # plot interaction
 plot_lmm_treat <- plot_model(lmm_treat, "int", terms = c("grp_goal", "grp_method"), title = "Treatment Subgroup") + 
   labs(x = "Goal of regulators", y = "Treatment subgroup ratings", 
@@ -283,11 +283,70 @@ plot_lmm_treat <- plot_model(lmm_treat, "int", terms = c("grp_goal", "grp_method
         axis.ticks.x=element_blank())
 
 plot_lmm_treat
+'''
+
+```
+
+
+## estimating main effects by recoding conditions (treatment group)
+```{r}
+# main effect of method -- recode motivation
+emoreg_data_treat$grp_goal2 <- NA
+emoreg_data_treat$grp_goal2[emoreg_data_treat$grp_goal == "motivated"] <- 1
+emoreg_data_treat$grp_goal2[emoreg_data_treat$grp_goal == "non_motivated"] <- -1
+
+summary(lmer(rate ~ grp_goal2*grp_method + size + trial + (1|img) +  (1|groupID/sub_id), emoreg_data_treat))
+
+# main effect of motivation -- recode method
+emoreg_data_treat$grp_method2 <- NA
+emoreg_data_treat$grp_method2[emoreg_data_treat$grp_method == "reappraisal"] <- 1
+emoreg_data_treat$grp_method2[emoreg_data_treat$grp_method == "observing"] <- -1
+
+summary(lmer(rate ~ grp_goal*grp_method2 + size + trial + (1|img) +  (1|groupID/sub_id), emoreg_data_treat))
 
 
 ```
 
-#### Emmeans analysis (treatment group) 
+## simple effects (treatment subgroup)
+```{r}
+# Simple effect of method -- recode motivation
+
+## when grp_goal = non-motivated = 0
+## i.e. comparing reappraisal only vs. baseline
+emoreg_data_treat$grp_goal_simp2 <- NA
+emoreg_data_treat$grp_goal_simp2[emoreg_data_treat$grp_goal == "motivated"] <- 1
+emoreg_data_treat$grp_goal_simp2[emoreg_data_treat$grp_goal == "non_motivated"] <- 0
+lm_simp_tr2 <- lmer(rate ~ grp_goal_simp2*grp_method + size + trial + (1|img) +  (1|groupID/sub_id), emoreg_data_treat)
+my_summ_lm(lm_simp_tr2)
+#confint(lm_simp_tr2)
+
+# Simple effect of motivation -- recode method
+
+
+## when grp_method = observing = 0
+## i.e., comparing motivation only vs. baseline
+emoreg_data_treat$grp_method_simp2 <- NA
+emoreg_data_treat$grp_method_simp2[emoreg_data_treat$grp_method == "reappraisal"] <- 1
+emoreg_data_treat$grp_method_simp2[emoreg_data_treat$grp_method == "observing"] <- 0
+
+lm_simp_tr4 <- lmer(rate ~ grp_goal*grp_method_simp2 + size + trial + (1|img) +  (1|groupID/sub_id),
+                    control = lmerControl(optimizer ="Nelder_Mead"), emoreg_data_treat)
+my_summ_lm(lm_simp_tr4)
+#confint(lm_simp_tr4)
+
+# diagonal contrast
+emm_options(lmer.df = "satterthwaite")
+emm <- emmeans(lmm_treat, ~ grp_goal * grp_method, lmerTest.limit = 19356)
+
+## Compare (1,1) vs (0,0)
+## i.e. comparing motivation + reappraisal vs. baseline
+contr <- contrast(emm, method = list("11 vs 00" = c(-1, 0, 0, 1)))  # Order = (0,0), (0,1), (1,0), (1,1)
+summary(contr)
+confint(contr)
+```
+
+
+## Emmeans analysis (treatment group) 
 
 ```{r}
 # testing main effects
@@ -309,6 +368,8 @@ emmeans(lmm_treat2, pairwise ~ group_cond)
 
 
 ```
+
+
 
 
 # Bar plot to show the condition effects
@@ -348,24 +409,6 @@ ggplot(treat_summary, aes(x = Condition, y = Score, color = Condition)) +
 
 
 
-# Main & simple  effect (treatment group)
-```{r}
-# main effect of method -- recode motivation
-emoreg_data_treat$grp_goal2 <- NA
-emoreg_data_treat$grp_goal2[emoreg_data_treat$grp_goal == "motivated"] <- 1
-emoreg_data_treat$grp_goal2[emoreg_data_treat$grp_goal == "non_motivated"] <- -1
-
-summary(lmer(rate ~ grp_goal2*grp_method + size + trial + (1|img) +  (1|groupID/sub_id), emoreg_data_treat))
-
-# main effect of motivation -- recode method
-emoreg_data_treat$grp_method2 <- NA
-emoreg_data_treat$grp_method2[emoreg_data_treat$grp_method == "reappraisal"] <- 1
-emoreg_data_treat$grp_method2[emoreg_data_treat$grp_method == "observing"] <- -1
-
-summary(lmer(rate ~ grp_goal*grp_method2 + size + trial + (1|img) +  (1|groupID/sub_id), emoreg_data_treat))
-
-
-```
 
 
 # Hypotheses for the control subgroup 
@@ -384,6 +427,7 @@ lmm_cont <- lmer(rate ~ grp_goal*grp_method + size + trial + (1|img) + (1|groupI
 summary(lmm_cont)
 my_summ_lm(lmm_cont)
 
+'''
 plot_lmm_cont <- plot_model(lmm_cont, "int", terms = c("grp_method","grp_goal"),title = "") + 
   labs(x = "Goal of regulators", y = "Control subgroup ratings", 
        color = "Method of regulators") + 
@@ -398,7 +442,7 @@ plot_lmm_cont
 # goal only vs. reappraisal only?
 #lmm_cont2 <- lmer(rate ~ group_cond + size + trial + (1|img) + (1|groupID/sub_id), emoreg_data_cont)
 #emmeans(lmm_cont2, specs = pairwise ~ group_cond)
-
+'''
 ```
 
 # Main effect (control group)
@@ -416,7 +460,7 @@ emoreg_data_cont$grp_method2[emoreg_data_cont$grp_method == "observing"] <- -0.5
 
 lm_std <- lmer(rate ~ grp_goal2*grp_method2 + size + trial + (1|img) +  (1|groupID/sub_id), emoreg_data_cont)
 summary(lm_std)
-confint(lm_std)
+#confint(lm_std)
 
 
 ```
@@ -427,23 +471,26 @@ confint(lm_std)
 ```{r, warning=FALSE}
 # Simple effect of method -- recode motivation
 ## when grp_goal = motivated = 0
+## i.e. comparing motivation only vs. motivation+reappraisal
 emoreg_data_cont$grp_goal_simp1 <- NA
 emoreg_data_cont$grp_goal_simp1[emoreg_data_cont$grp_goal == "motivated"] <- 0
 emoreg_data_cont$grp_goal_simp1[emoreg_data_cont$grp_goal == "non_motivated"] <- 1
 lm_simp1 <- lmer(rate ~ grp_goal_simp1*grp_method + size + trial + (1|img) +  (1|groupID/sub_id), emoreg_data_cont)
 my_summ_lm(lm_simp1)
-confint(lm_simp1)
+#confint(lm_simp1)
 
 ## when grp_goal = non-motivated = 0
+## i.e. comparing reappraisal only vs. baseline
 emoreg_data_cont$grp_goal_simp2 <- NA
 emoreg_data_cont$grp_goal_simp2[emoreg_data_cont$grp_goal == "motivated"] <- 1
 emoreg_data_cont$grp_goal_simp2[emoreg_data_cont$grp_goal == "non_motivated"] <- 0
 lm_simp2 <- lmer(rate ~ grp_goal_simp2*grp_method + size + trial + (1|img) +  (1|groupID/sub_id), emoreg_data_cont)
-summary(lm_simp2)
-confint(lm_simp2)
+my_summ_lm(lm_simp2)
+#confint(lm_simp2)
 
 # Simple effect of motivation -- recode method
 ## when grp_method = reappraisal = 0
+## i.e. comparing reappraisal only vs. reappraisal + motivation
 emoreg_data_cont$grp_method_simp1 <- NA
 emoreg_data_cont$grp_method_simp1[emoreg_data_cont$grp_method == "reappraisal"] <- 0
 emoreg_data_cont$grp_method_simp1[emoreg_data_cont$grp_method == "observing"] <- 1
@@ -453,19 +500,21 @@ my_summ_lm(lm_simp3)
 
 
 ## when grp_method = observing = 0
+## i.e., comparing motivation only vs. baseline
 emoreg_data_cont$grp_method_simp2 <- NA
 emoreg_data_cont$grp_method_simp2[emoreg_data_cont$grp_method == "reappraisal"] <- 1
 emoreg_data_cont$grp_method_simp2[emoreg_data_cont$grp_method == "observing"] <- 0
 
 lm_simp4 <- lmer(rate ~ grp_goal*grp_method_simp2 + size + trial + (1|img) +  (1|groupID/sub_id), emoreg_data_cont)
-summary(lm_simp4)
-confint(lm_simp4)
+my_summ_lm(lm_simp4)
+#confint(lm_simp4)
 
 # diagonal contrast
 emm_options(lmer.df = "satterthwaite")
-emm <- emmeans(lm_std, ~ grp_goal2 * grp_method2, lmerTest.limit = 19356)
+emm <- emmeans(lmm_cont, ~ grp_goal * grp_method, lmerTest.limit = 19356)
 
-# Compare (1,1) vs (0,0)
+## Compare (1,1) vs (0,0)
+## i.e. comparing motivation + reappraisal vs. baseline
 contr <- contrast(emm, method = list("11 vs 00" = c(-1, 0, 0, 1)))  # Order = (0,0), (0,1), (1,0), (1,1)
 summary(contr)
 confint(contr)
