@@ -350,6 +350,25 @@ lm_motivation_only <- glmer(gpt_label_bi ~  trial +
             family = binomial, control = glmerControl(optimizer = "bobyqa"))
 my_summ_lm(lm_motivation_only)
 
+## Change in reaprpaisal over time in other conditions
+lm_control_only <- glmer(gpt_label_bi ~  trial +
+              (1|groupID/sub_id) + (1 | img),
+            data = emoreg_dat %>% filter(group_cond == "control"), 
+            family = binomial, control = glmerControl(optimizer = "bobyqa"))
+my_summ_lm(lm_control_only)
+
+
+lm_reappraisal_only <- glmer(gpt_label_bi ~  trial +
+              (1|groupID/sub_id) + (1 | img),
+            data = emoreg_dat %>% filter(subgrp == "treatment" & group_cond == "reappraisal"), 
+            family = binomial, control = glmerControl(optimizer = "bobyqa"))
+my_summ_lm(lm_reappraisal_only)
+
+lm_reappraisal_motivation <- glmer(gpt_label_bi ~  trial +
+              (1|groupID/sub_id) + (1 | img),
+            data = emoreg_dat %>% filter(subgrp == "treatment" & group_cond == "reappraisal & motivation"), 
+            family = binomial, control = glmerControl(optimizer = "bobyqa"))
+my_summ_lm(lm_reappraisal_motivation)
 ```
 
 ```{r simple_treat}
@@ -415,6 +434,21 @@ my_summ_lm(glm_simp4)
 
 
 
+# Diagonal contrast
+emm_options(lmer.df = "satterthwaite")
+emm <- emmeans(m2_treat, ~ grp_goal * grp_method, lmerTest.limit = 19356)
+
+## Compare (1,1) vs (0,0)
+## i.e. comparing motivation + reappraisal vs. baseline
+contr <- contrast(emm, method = list("11 vs 00" = c(-1, 0, 0, 1)))  # Order = (0,0), (0,1), (1,0), (1,1)
+summary(contr)
+confint(contr)
+
+## Compare (0,1) vs (1,0)
+## i.e. comparing motivation only vs. reappraisal only
+contr2 <- contrast(emm, method = list("11 vs 00" = c(0, -1, 1, 0)))
+summary(contr2)
+confint(contr2)
 ```
 
 
@@ -494,7 +528,21 @@ glm_control_simp4 <- glmer(gpt_label_bi ~ grp_method4*grp_goal + trial +
 
 my_summ_lm(glm_control_simp4)
 
+## diagonal contrast
+emm_options(lmer.df = "satterthwaite")
+emm <- emmeans(m2_control, ~ grp_goal * grp_method, lmerTest.limit = 19356)
 
+## Compare (1,1) vs (0,0)
+## i.e. comparing motivation + reappraisal vs. baseline
+contr <- contrast(emm, method = list("11 vs 00" = c(-1, 0, 0, 1)))  # Order = (0,0), (0,1), (1,0), (1,1)
+summary(contr)
+confint(contr)
+
+## Compare (0,1) vs (1,0)
+## i.e. comparing motivation only vs. reappraisal only
+contr <- contrast(emm, method = list("10 vs 01" = c(0, -1, 1, 0)))  
+summary(contr)
+confint(contr)
 
 ```
 
