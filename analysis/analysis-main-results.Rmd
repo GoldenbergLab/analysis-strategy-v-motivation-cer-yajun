@@ -25,7 +25,7 @@ options(scipen = 999)
 
 # Import data 
 
-```{r}
+```{r read data}
 emoreg_dat <- read_csv("../Data/emoReg_clean_no_dup.csv")
 solo_dat <- read_csv("../Data/emoReg_clean_solo.csv")
 
@@ -194,7 +194,7 @@ emoreg_dat %>%
 
 ## Distribution Plots 
 
-```{r}
+```{r distribution}
 
 # Distribution of negative emotion rating
 emoreg_dat %>% ggplot(aes(rate)) + geom_histogram(bins = 10, color = "white") +
@@ -310,7 +310,6 @@ summary(lmer(rate ~ grp_goal*grp_method2 + size + trial + (1|img) +  (1|groupID/
 ## simple effects (treatment subgroup)
 ```{r}
 # Simple effect of method -- recode motivation
-
 ## when grp_goal = non-motivated = 0
 ## i.e. comparing reappraisal only vs. baseline
 emoreg_data_treat$grp_goal_simp2 <- NA
@@ -320,8 +319,15 @@ lm_simp_tr2 <- lmer(rate ~ grp_goal_simp2*grp_method + size + trial + (1|img) + 
 my_summ_lm(lm_simp_tr2)
 #confint(lm_simp_tr2)
 
-# Simple effect of motivation -- recode method
+## when grp_goal = motivated = 0
+## i.e. comparing group-focused reappraisal vs. motivation only
+emoreg_data_treat$grp_goal_simp3 <- NA
+emoreg_data_treat$grp_goal_simp3[emoreg_data_treat$grp_goal == "motivated"] <- 0
+emoreg_data_treat$grp_goal_simp3[emoreg_data_treat$grp_goal == "non_motivated"] <- 1
+lm_simp_tr <- lmer(rate ~ grp_goal_simp3*grp_method + size + trial + (1|img) +  (1|groupID/sub_id), emoreg_data_treat)
+my_summ_lm(lm_simp_tr)
 
+# Simple effect of motivation -- recode method
 
 ## when grp_method = observing = 0
 ## i.e., comparing motivation only vs. baseline
@@ -334,6 +340,18 @@ lm_simp_tr4 <- lmer(rate ~ grp_goal*grp_method_simp2 + size + trial + (1|img) + 
 my_summ_lm(lm_simp_tr4)
 #confint(lm_simp_tr4)
 
+
+
+## when grp_method = reapp = 0
+## i.e., comparing group-focused reappraisal vs. reappraisal only
+emoreg_data_treat$grp_method_simp3 <- NA
+emoreg_data_treat$grp_method_simp3[emoreg_data_treat$grp_method == "reappraisal"] <- 0
+emoreg_data_treat$grp_method_simp3[emoreg_data_treat$grp_method == "observing"] <- 1
+
+lm_simp_tr3 <- lmer(rate ~ grp_goal*grp_method_simp3 + size + trial + (1|img) +  (1|groupID/sub_id),
+                    control = lmerControl(optimizer ="Nelder_Mead"), emoreg_data_treat)
+my_summ_lm(lm_simp_tr3)
+
 # diagonal contrast
 emm_options(lmer.df = "satterthwaite")
 emm <- emmeans(lmm_treat, ~ grp_goal * grp_method, lmerTest.limit = 19356)
@@ -343,6 +361,12 @@ emm <- emmeans(lmm_treat, ~ grp_goal * grp_method, lmerTest.limit = 19356)
 contr <- contrast(emm, method = list("11 vs 00" = c(-1, 0, 0, 1)))  # Order = (0,0), (0,1), (1,0), (1,1)
 summary(contr)
 confint(contr)
+
+## Compare (1,0) vs (0,1)
+## i.e. comparing motivation only vs. reapp only
+contr2 <- contrast(emm, method = list("10 vs 01" = c(0, 1, -1, 0)))  # Order = (0,0), (0,1), (1,0), (1,1)
+summary(contr2)
+confint(contr2)
 ```
 
 
@@ -375,19 +399,19 @@ emmeans(lmm_treat2, pairwise ~ group_cond)
 # Bar plot to show the condition effects
 ```{r}
 # Custom colors for conditions
-condition_colors <- c('Self-Focused Observing' = 'black', 'Self-Focused Reappraisal' = 'blue',
-            'Group-Focused No Strategy' = 'red', 'Group-Focused Reappraisal' = 'purple')
+condition_colors <- c('Baseline' = 'black', 'Reappraisal Only' = 'blue',
+            'Group-Focused Motivation Only' = 'red', 'Group-Focused Motivation + Reappraisal' = 'purple')
 
 # bar plot
 treat_summary <- data.frame(
-  Condition = c('Self-Focused Observing', 'Self-Focused Reappraisal',
-                'Group-Focused No Strategy', 'Group-Focused Reappraisal'),
+  Condition = c('Baseline', 'Reappraisal Only',
+                'Group-Focused Motivation Only', 'Group-Focused Motivation + Reappraisal'),
   Score = c(6.37, 4.57, 4.80, 3.91),
   SD = c(0.232, 0.244, 0.240, 0.252)  # summary data from emmeans est.
 )
 
-treat_summary$Condition <- factor(treat_summary$Condition, levels = c('Self-Focused Observing', 'Self-Focused Reappraisal',
-                'Group-Focused No Strategy', 'Group-Focused Reappraisal'))
+treat_summary$Condition <- factor(treat_summary$Condition, levels = c('Baseline', 'Group-Focused Motivation Only',
+                'Reappraisal Only', 'Group-Focused Motivation + Reappraisal'))
 
 
 
@@ -400,11 +424,14 @@ ggplot(treat_summary, aes(x = Condition, y = Score, color = Condition)) +
         panel.grid.major = element_blank(),  # Remove major grid lines
         panel.grid.minor = element_blank(),  # Remove minor grid lines
         axis.line = element_line(colour = "black"),
-        axis.text.x = element_text(size = rel(0.9)),  # Increase size of x-axis text
-        axis.text.y = element_text(size = rel(1.3)),  # Increase size of y-axis text
-        axis.title.x = element_text(size = rel(1.3)),  # Increase size of x-axis title
-        axis.title.y = element_text(size = rel(1.1))) +  # Add axis lines
+        axis.text.x = element_text(size = rel(1.0)),  # Increase size of x-axis text
+        axis.text.y = element_text(size = rel(1.5)),  # Increase size of y-axis text
+        axis.title.x = element_text(size = rel(1.5)),  # Increase size of x-axis title
+        axis.title.y = element_text(size = rel(1.5))) +  # Add axis lines
   labs(x = "Treatment Condition", y = "Treated Participants' Negative Emotion Ratings")  # Adding labels
+
+ggsave("../Figures/Figure 2-treated-only.png", width = 8, height =6, dpi=300)
+
 ```
 
 
@@ -517,7 +544,12 @@ emm <- emmeans(lmm_cont, ~ grp_goal * grp_method, lmerTest.limit = 19356)
 ## i.e. comparing motivation + reappraisal vs. baseline
 contr <- contrast(emm, method = list("11 vs 00" = c(-1, 0, 0, 1)))  # Order = (0,0), (0,1), (1,0), (1,1)
 summary(contr)
-confint(contr)
+
+## Compare (1,0) vs (0,1)
+## i.e. comparing motivation + reappraisal vs. baseline
+contr2 <- contrast(emm, method = list("10 vs 01" = c(0, 1, -1, 0)))  # Order = (0,0), (0,1), (1,0), (1,1)
+summary(contr2)
+confint(contr2)
 ```
 
 
