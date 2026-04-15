@@ -89,6 +89,14 @@ table(emoreg_dat$treat_size)
 ```
 
 
+# Use the after-exclusion data
+```{r}
+## Remove the inattention people
+emoreg_dat <- emoreg_dat %>% 
+  filter(is.na(attention_check))
+
+```
+
 
 # Descriptive Analysis 
 ## Sample and conditions
@@ -139,14 +147,6 @@ emoreg_dat %>%
   group_by(grp_method, grp_goal, subgrp) %>% 
   summarise(n_distinct(sub_id))
 
-
-```
-
-# Use the after-exclusion data
-```{r}
-## Remove the inattention people
-emoreg_dat <- emoreg_dat %>% 
-  filter(is.na(attention_check))
 
 ```
 
@@ -556,8 +556,8 @@ confint(contr2)
 # An alternative plot for the controls
 ```{r fig.width=10, fig.height=6}
 summary_control <- data.frame(
-  group_cond_new = c('Baseline', 'Reappraisal Only',
-                'Group-Focused Motivation Only', 'Group-Focused Reappraisal'),
+  group_cond_new = c('Baseline', 'Mere Reappraisal',
+                'Mere Group-Focused Motivation', 'Reappraisal+Group-Focused Motivation'),
   mean_rate = c(6.37, 5.83, 6.08, 5.68),   # summary data from emmeans est.
   se = c(0.243, 0.251, 0.245, 0.256)
 )
@@ -566,12 +566,12 @@ summary_control$ci_lower = summary_control$mean_rate - 1.96 * summary_control$se
 summary_control$ci_upper = summary_control$mean_rate + 1.96 * summary_control$se
 
 summary_control$group_cond_new <- factor(summary_control$group_cond_new, 
-                                         levels = c('Baseline', 'Group-Focused Motivation Only', 'Reappraisal Only',
-                 'Group-Focused Reappraisal'))
+                                         levels = c('Baseline', 'Mere Reappraisal', 'Mere Group-Focused Motivation',
+                 'Reappraisal+Group-Focused Motivation'))
 
 
-colors <- c("Baseline" = "black", "Reappraisal Only" = "blue", 
-            "Group-Focused Motivation Only" = "red", "Group-Focused Reappraisal" = "purple")
+colors <- c("Baseline" = "black", "Mere Reappraisal" = "blue", 
+            "Mere Group-Focused Motivation" = "red", "Reappraisal+Group-Focused Motivation" = "purple")
 
 
 plot_cont_sum <- ggplot(summary_control, aes(x = group_cond_new, y = mean_rate, color = group_cond_new)) +
@@ -583,11 +583,11 @@ plot_cont_sum <- ggplot(summary_control, aes(x = group_cond_new, y = mean_rate, 
         panel.grid.major = element_blank(),  # Remove major grid lines
         panel.grid.minor = element_blank(),  # Remove minor grid lines
         axis.line = element_line(colour = "black"),
-        axis.text.x = element_text(size = rel(1.2)),  # Increase size of x-axis text
+        axis.text.x = element_text(size = rel(1.2), angle = 15, hjust = 1),  # Increase size of x-axis text
         axis.text.y = element_text(size = rel(1.5)),  # Increase size of y-axis text
         axis.title.x = element_text(size = rel(1.5)),  # Increase size of x-axis title
         axis.title.y = element_text(size = rel(1.5))) +  # Add axis lines
-  labs(x = "Treatment Condition", y = "Non-Treated Subgroup Negative Emotions")  
+  labs(x = "Treatment Condition", y = "Non-Treated Participants' Negative Emotions")  
 
 plot_cont_sum
 ggsave("../Figures/Figure 2-non-treated-only.png", width = 8, height =6, dpi=300)
